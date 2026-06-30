@@ -1,4 +1,5 @@
-FROM golang:1.26.4
+ARG GO_VERSION
+FROM golang:${GO_VERSION}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bash ca-certificates curl git docker.io \

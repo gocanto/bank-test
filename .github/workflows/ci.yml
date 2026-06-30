@@ -13,19 +13,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve Go version from go-fmt
+        id: go-version
+        run: echo "version=$(./infra/scripts/go-version.sh)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.4"
+          go-version: "${{ steps.go-version.outputs.version }}"
           cache: true
 
       - name: Check formatting
-        run: |
-          gofmt -w $(find . -name '*.go' -not -path './.git/*')
-          git diff --exit-code
+        run: make lint
 
       - name: Build Docker toolbox
-        run: docker compose build tools
+        run: make build-tools
 
       - name: Run checks
         run: make check
