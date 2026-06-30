@@ -24,6 +24,8 @@ jobs:
           gofmt -w $(find . -name '*.go' -not -path './.git/*')
           git diff --exit-code
 
+      - name: Build Docker toolbox
+        run: docker compose build tools
+
       - name: Run checks
         run: make check
-
