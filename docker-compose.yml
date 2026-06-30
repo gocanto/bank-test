@@ -1,0 +1,36 @@
+services:
+  tools:
+    build:
+      context: .
+      dockerfile: infra/docker/toolbox.Dockerfile
+    working_dir: /workspace
+    environment:
+      ENCORE_DAEMON_DEV: "1"
+      ENCORE_RUNTIME_CONFIG: '{"env_id":"local"}'
+      TEMPORAL_ADDRESS: temporal:7233
+      DOCKER_HOST: unix:///var/run/docker.sock
+      GOCACHE: /go/cache
+      GOMODCACHE: /go/pkg/mod
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/workspace
+      - go-cache:/go/cache
+      - go-mod:/go/pkg/mod
+      - encore-cache:/root/.encore
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - temporal
+
+  temporal:
+    image: temporalio/temporal:latest
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-ip", "0.0.0.0"]
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+volumes:
+  go-cache:
+  go-mod:
+  encore-cache:
+
