@@ -15,6 +15,7 @@ func testPeriod() (time.Time, time.Time) {
 func TestBillHappyPaths(t *testing.T) {
 	start, end := testPeriod()
 	bill, err := NewBill(CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: end}, start)
+
 	if err != nil {
 		t.Fatalf("new bill: %v", err)
 	}
@@ -24,11 +25,13 @@ func TestBillHappyPaths(t *testing.T) {
 	}
 
 	usd, err := NewMoney(1250, "usd")
+
 	if err != nil {
 		t.Fatalf("new usd money: %v", err)
 	}
 
 	gel, err := NewMoney(700, "GEL")
+
 	if err != nil {
 		t.Fatalf("new gel money: %v", err)
 	}
@@ -70,6 +73,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 			name: "invalid bill id",
 			run: func() error {
 				_, err := NewBill(CreateBill{PeriodStart: start, PeriodEnd: end}, start)
+
 				return err
 			},
 			want: ErrInvalidBillID,
@@ -78,6 +82,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 			name: "invalid period",
 			run: func() error {
 				_, err := NewBill(CreateBill{BillID: "bill", PeriodStart: end, PeriodEnd: start}, start)
+
 				return err
 			},
 			want: ErrInvalidPeriod,
@@ -86,6 +91,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 			name: "invalid currency",
 			run: func() error {
 				_, err := NewMoney(100, "EUR")
+
 				return err
 			},
 			want: ErrInvalidCurrency,
@@ -94,6 +100,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 			name: "invalid amount",
 			run: func() error {
 				_, err := NewMoney(0, "USD")
+
 				return err
 			},
 			want: ErrInvalidAmount,
@@ -105,6 +112,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 				amount, _ := NewMoney(100, "USD")
 				_, _ = bill.AddLineItem(AddLineItem{ID: "li", Description: "fee", Amount: amount}, start)
 				_, err := bill.AddLineItem(AddLineItem{ID: "li", Description: "fee", Amount: amount}, start)
+
 				return err
 			},
 			want: ErrDuplicateLineItem,
@@ -116,6 +124,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 				_, _ = bill.Close(end)
 				amount, _ := NewMoney(100, "USD")
 				_, err := bill.AddLineItem(AddLineItem{ID: "li", Description: "fee", Amount: amount}, start)
+
 				return err
 			},
 			want: ErrBillClosed,
@@ -126,6 +135,7 @@ func TestBillUnhappyPaths(t *testing.T) {
 				bill, _ := NewBill(CreateBill{BillID: "bill", PeriodStart: start, PeriodEnd: end}, start)
 				_, _ = bill.Close(end)
 				_, err := bill.Close(end)
+
 				return err
 			},
 			want: ErrBillAlreadyClosed,

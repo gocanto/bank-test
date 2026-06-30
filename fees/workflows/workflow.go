@@ -20,6 +20,7 @@ const (
 func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 	now := workflow.Now(ctx)
 	bill, err := domain.NewBill(req, now)
+
 	if err != nil {
 		return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
 	}
@@ -32,6 +33,7 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 
 	if err := workflow.SetUpdateHandler(ctx, UpdateAddLineItem, func(ctx workflow.Context, req domain.AddLineItem) (domain.Bill, error) {
 		updated, err := bill.AddLineItem(req, workflow.Now(ctx))
+
 		if err != nil {
 			return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
 		}
@@ -45,6 +47,7 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 
 	if err := workflow.SetUpdateHandler(ctx, UpdateCloseBill, func(ctx workflow.Context) (domain.Bill, error) {
 		updated, err := bill.Close(workflow.Now(ctx))
+
 		if err != nil {
 			return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
 		}
@@ -57,6 +60,7 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 	}
 
 	sleepFor := req.PeriodEnd.Sub(now)
+
 	if sleepFor > 0 {
 		if err := workflow.Sleep(ctx, sleepFor); err != nil {
 			return domain.Bill{}, err

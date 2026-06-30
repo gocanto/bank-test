@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"encore.app/fees/domain"
+	billstore "encore.app/fees/storage/bills"
 	"encore.app/fees/workflows"
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/enums/v1"
@@ -33,6 +34,11 @@ func (s *Service) CreateBill(ctx context.Context, req *domain.CreateBill) (*Bill
 
 	billID := strings.TrimSpace(req.BillID)
 	workflowID := workflows.WorkflowID(billID)
+	initialBill, err := domain.NewBill(*req, time.Now())
+
+	if err != nil {
+		return nil, apiError(err)
+	}
 
 	run, err := s.client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:                       workflowID,
@@ -40,18 +46,18 @@ func (s *Service) CreateBill(ctx context.Context, req *domain.CreateBill) (*Bill
 		WorkflowIDReusePolicy:    enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 		WorkflowExecutionTimeout: req.PeriodEnd.Sub(req.PeriodStart) + 24*time.Hour,
 	}, workflows.WorkflowNameBill, *req)
+
 	if err != nil {
 		return nil, apiError(err)
 	}
 
 	_ = run
 
-	summary, err := s.queryBill(ctx, billID)
-	if err != nil {
+	if err := s.persistBill(ctx, initialBill.Summary()); err != nil {
 		return nil, apiError(err)
 	}
 
-	return &BillResponse{Bill: summary}, nil
+	return &BillResponse{Bill: initialBill.Summary()}, nil
 }
 
 //encore:api public method=POST path=/bills/:billID/line-items
@@ -66,12 +72,18 @@ func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.Ad
 		Args:         []any{*req},
 		WaitForStage: client.WorkflowUpdateStageCompleted,
 	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}
 
 	var bill domain.Bill
+
 	if err := handle.Get(ctx, &bill); err != nil {
+		return nil, apiError(err)
+	}
+
+	if err := s.persistBill(ctx, bill); err != nil {
 		return nil, apiError(err)
 	}
 
@@ -85,12 +97,18 @@ func (s *Service) CloseBill(ctx context.Context, billID string) (*BillResponse, 
 		UpdateName:   workflows.UpdateCloseBill,
 		WaitForStage: client.WorkflowUpdateStageCompleted,
 	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}
 
 	var bill domain.Bill
+
 	if err := handle.Get(ctx, &bill); err != nil {
+		return nil, apiError(err)
+	}
+
+	if err := s.persistBill(ctx, bill); err != nil {
 		return nil, apiError(err)
 	}
 
@@ -99,19 +117,58 @@ func (s *Service) CloseBill(ctx context.Context, billID string) (*BillResponse, 
 
 //encore:api public method=GET path=/bills/:billID
 func (s *Service) GetBill(ctx context.Context, billID string) (*BillResponse, error) {
+	stored, storedErr := s.storedBill(ctx, billID)
+
+	if storedErr == nil && stored.State == domain.StateClosed {
+		return &BillResponse{Bill: stored}, nil
+	}
+
 	bill, err := s.queryBill(ctx, billID)
+
 	if err != nil {
+		if storedErr == nil {
+			return &BillResponse{Bill: stored}, nil
+		}
+
+		return nil, apiError(err)
+	}
+
+	if err := s.persistBill(ctx, bill); err != nil {
 		return nil, apiError(err)
 	}
 
 	return &BillResponse{Bill: bill}, nil
 }
 
+func (s *Service) persistBill(ctx context.Context, bill domain.Bill) error {
+	if s == nil || s.store == nil {
+		return nil
+	}
+
+	return s.store.Save(ctx, bill)
+}
+
+func (s *Service) storedBill(ctx context.Context, billID string) (domain.Bill, error) {
+	if s == nil || s.store == nil {
+		return domain.Bill{}, billstore.ErrNotFound
+	}
+
+	bill, err := s.store.Find(ctx, billID)
+
+	if errors.Is(err, billstore.ErrNotFound) {
+		return domain.Bill{}, err
+	}
+
+	return bill, err
+}
+
 func (s *Service) queryBill(ctx context.Context, billID string) (domain.Bill, error) {
 	response, err := s.client.QueryWorkflow(ctx, workflows.WorkflowID(billID), "", workflows.QuerySummary)
+
 	if err != nil {
 		var result domain.Bill
 		run := s.client.GetWorkflow(ctx, workflows.WorkflowID(billID), "")
+
 		if getErr := run.Get(ctx, &result); getErr == nil {
 			return result, nil
 		}
@@ -120,6 +177,7 @@ func (s *Service) queryBill(ctx context.Context, billID string) (domain.Bill, er
 	}
 
 	var bill domain.Bill
+
 	if err := response.Get(&bill); err != nil {
 		return domain.Bill{}, err
 	}
@@ -133,11 +191,13 @@ func apiError(err error) error {
 	}
 
 	var applicationErr *temporal.ApplicationError
+
 	if errors.As(err, &applicationErr) && applicationErr.Unwrap() != nil {
 		err = applicationErr.Unwrap()
 	}
 
 	var notFound *serviceerror.NotFound
+
 	var alreadyStarted *serviceerror.WorkflowExecutionAlreadyStarted
 
 	switch {

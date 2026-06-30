@@ -19,6 +19,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 
 	env.RegisterDelayedCallback(func() {
 		amount, err := domain.NewMoney(1500, "USD")
+
 		if err != nil {
 			t.Fatalf("new money: %v", err)
 		}
@@ -33,6 +34,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 				}
 
 				summary, ok := success.(domain.Bill)
+
 				if !ok {
 					t.Fatalf("add update result = %T, want domain.Bill", success)
 				}
@@ -59,6 +61,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 				}
 
 				summary, ok := success.(domain.Bill)
+
 				if !ok {
 					t.Fatalf("close update result = %T, want domain.Bill", success)
 				}
@@ -81,6 +84,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 	}
 
 	var result domain.Bill
+
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("workflow result: %v", err)
 	}
@@ -109,6 +113,7 @@ func TestBillWorkflow_AutoClose(t *testing.T) {
 	}
 
 	var result domain.Bill
+
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("workflow result: %v", err)
 	}

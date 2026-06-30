@@ -30,3 +30,12 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local SQLite state
+storage/database/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
