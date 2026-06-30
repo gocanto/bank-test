@@ -1,0 +1,108 @@
+//go:build e2e
+
+package workflows_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"encore.app/fees/domain"
+	"encore.app/fees/workflows"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
+)
+
+func TestTemporalE2E_CreateAddCloseBill(t *testing.T) {
+	ctx := context.Background()
+	req := testcontainers.ContainerRequest{
+		Image:        "temporalio/temporal:latest",
+		ExposedPorts: []string{"7233/tcp"},
+		Cmd:          []string{"server", "start-dev", "--ip", "0.0.0.0"},
+		WaitingFor:   wait.ForListeningPort("7233/tcp").WithStartupTimeout(90 * time.Second),
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("start temporal container: %v", err)
+	}
+	defer testcontainers.TerminateContainer(container)
+
+	host, err := container.Host(ctx)
+	if err != nil {
+		t.Fatalf("container host: %v", err)
+	}
+
+	port, err := container.MappedPort(ctx, "7233")
+	if err != nil {
+		t.Fatalf("container port: %v", err)
+	}
+
+	c, err := client.Dial(client.Options{HostPort: host + ":" + port.Port()})
+	if err != nil {
+		t.Fatalf("dial temporal: %v", err)
+	}
+	defer c.Close()
+
+	w := worker.New(c, workflows.DefaultTaskQueue, worker.Options{})
+	w.RegisterWorkflowWithOptions(workflows.Bill, workflow.RegisterOptions{Name: workflows.WorkflowNameBill})
+	if err := w.Start(); err != nil {
+		t.Fatalf("start worker: %v", err)
+	}
+	defer w.Stop()
+
+	start := time.Now().UTC()
+	billReq := domain.CreateBill{BillID: "e2e-bill", PeriodStart: start, PeriodEnd: start.Add(time.Hour)}
+	run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+		ID:        workflows.WorkflowID(billReq.BillID),
+		TaskQueue: workflows.DefaultTaskQueue,
+	}, workflows.WorkflowNameBill, billReq)
+	if err != nil {
+		t.Fatalf("execute workflow: %v", err)
+	}
+
+	amount, err := domain.NewMoney(1200, "USD")
+	if err != nil {
+		t.Fatalf("new money: %v", err)
+	}
+
+	update, err := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   run.GetID(),
+		RunID:        run.GetRunID(),
+		UpdateName:   workflows.UpdateAddLineItem,
+		Args:         []any{domain.AddLineItem{ID: "li-1", Description: "E2E fee", Amount: amount}},
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		t.Fatalf("add update: %v", err)
+	}
+
+	var summary domain.Bill
+	if err := update.Get(ctx, &summary); err != nil {
+		t.Fatalf("add update result: %v", err)
+	}
+
+	update, err = c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   run.GetID(),
+		RunID:        run.GetRunID(),
+		UpdateName:   workflows.UpdateCloseBill,
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		t.Fatalf("close update: %v", err)
+	}
+
+	if err := update.Get(ctx, &summary); err != nil {
+		t.Fatalf("close update result: %v", err)
+	}
+
+	if summary.State != domain.StateClosed {
+		t.Fatalf("state = %q, want closed", summary.State)
+	}
+}
