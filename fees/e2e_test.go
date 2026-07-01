@@ -14,7 +14,7 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"gocanto.sh/bank/internal/fees/domain"
-	"gocanto.sh/bank/fees/storage/bills"
+	"gocanto.sh/bank/internal/fees/billstore"
 	"gocanto.sh/bank/internal/platform/sqlite"
 	"gocanto.sh/bank/fees/workflows"
 	_ "modernc.org/sqlite"
@@ -106,7 +106,7 @@ func newE2EService(t *testing.T, ctx context.Context) *Service {
 		client: c,
 		worker: w,
 		db:     db,
-		store:  bills.New(db),
+		store:  billstore.New(db),
 	}
 
 	t.Cleanup(func() {
