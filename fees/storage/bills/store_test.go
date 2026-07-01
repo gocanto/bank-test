@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gocanto/bank-test/fees/domain"
-	"github.com/gocanto/bank-test/fees/storage/bills"
-	"github.com/gocanto/bank-test/fees/storage/database"
+	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/fees/storage/bills"
+	"gocanto.sh/bank/fees/storage/database"
 )
 
 func TestStoreFindReturnsNotFound(t *testing.T) {

@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"encore.dev"
-	billstore "github.com/gocanto/bank-test/fees/storage/bills"
-	"github.com/gocanto/bank-test/fees/storage/database"
-	"github.com/gocanto/bank-test/fees/workflows"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	billstore "gocanto.sh/bank/fees/storage/bills"
+	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/fees/workflows"
 )
 
 //encore:service

@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gocanto/bank-test/fees/domain"
-	"github.com/gocanto/bank-test/fees/storage/bills"
-	"github.com/gocanto/bank-test/fees/storage/database"
-	"github.com/gocanto/bank-test/fees/workflows"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/fees/storage/bills"
+	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/fees/workflows"
 	_ "modernc.org/sqlite"
 )
 

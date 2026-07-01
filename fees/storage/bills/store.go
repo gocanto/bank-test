@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gocanto/bank-test/fees/domain"
+	"gocanto.sh/bank/fees/domain"
 )
 
 type Store struct {

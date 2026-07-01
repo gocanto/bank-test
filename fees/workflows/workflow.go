@@ -3,9 +3,9 @@ package workflows
 import (
 	"time"
 
-	"github.com/gocanto/bank-test/fees/domain"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"gocanto.sh/bank/fees/domain"
 )
 
 const (

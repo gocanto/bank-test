@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"encore.dev/beta/errs"
-	"github.com/gocanto/bank-test/fees/domain"
-	billstore "github.com/gocanto/bank-test/fees/storage/bills"
-	"github.com/gocanto/bank-test/fees/workflows"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
+	"gocanto.sh/bank/fees/domain"
+	billstore "gocanto.sh/bank/fees/storage/bills"
+	"gocanto.sh/bank/fees/workflows"
 )
 
 type CreateBillRequest struct {
