@@ -36,7 +36,7 @@ test:
 	go test ./...
 
 test-e2e:
-	go test -tags=e2e -run 'E2E' ./fees ./fees/workflows
+	go test -tags=e2e -run 'E2E' ./fees ./internal/fees/workflows
 
 vet:
 	go vet ./...

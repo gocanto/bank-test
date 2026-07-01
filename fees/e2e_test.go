@@ -13,10 +13,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"gocanto.sh/bank/internal/fees/domain"
 	"gocanto.sh/bank/internal/fees/billstore"
+	"gocanto.sh/bank/internal/fees/domain"
+	"gocanto.sh/bank/internal/fees/workflows"
 	"gocanto.sh/bank/internal/platform/sqlite"
-	"gocanto.sh/bank/fees/workflows"
 	_ "modernc.org/sqlite"
 )
 

@@ -13,7 +13,7 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"gocanto.sh/bank/internal/fees/domain"
-	"gocanto.sh/bank/fees/workflows"
+	"gocanto.sh/bank/internal/fees/workflows"
 )
 
 func TestTemporalE2E_CreateAddCloseBill(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"gocanto.sh/bank/internal/fees/billstore"
+	"gocanto.sh/bank/internal/fees/workflows"
 	"gocanto.sh/bank/internal/platform/sqlite"
-	"gocanto.sh/bank/fees/workflows"
 )
 
 //encore:service
