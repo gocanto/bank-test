@@ -25,7 +25,7 @@ func TestServiceE2E_PersistsBillStateInMemorySQLite(t *testing.T) {
 	service := newE2EService(t, ctx)
 
 	start := time.Now().UTC()
-	created, err := service.CreateBill(ctx, &domain.CreateBill{
+	created, err := service.Create(ctx, &domain.CreateBill{
 		BillID:      "service-e2e-bill",
 		PeriodStart: start,
 		PeriodEnd:   start.Add(time.Hour),
@@ -35,8 +35,8 @@ func TestServiceE2E_PersistsBillStateInMemorySQLite(t *testing.T) {
 		t.Fatalf("create bill: %v", err)
 	}
 
-	if created.Bill.State != domain.StateOpen {
-		t.Fatalf("created state = %q, want open", created.Bill.State)
+	if created.Data.State != domain.StateOpen {
+		t.Fatalf("created state = %q, want open", created.Data.State)
 	}
 
 	amount, err := domain.NewMoney(1450, "USD")
@@ -55,28 +55,28 @@ func TestServiceE2E_PersistsBillStateInMemorySQLite(t *testing.T) {
 		t.Fatalf("add line item: %v", err)
 	}
 
-	if len(updated.Bill.LineItems) != 1 {
-		t.Fatalf("line items = %d, want 1", len(updated.Bill.LineItems))
+	if len(updated.Data.LineItems) != 1 {
+		t.Fatalf("line items = %d, want 1", len(updated.Data.LineItems))
 	}
 
-	closed, err := service.CloseBill(ctx, "service-e2e-bill")
+	closed, err := service.Close(ctx, "service-e2e-bill")
 
 	if err != nil {
 		t.Fatalf("close bill: %v", err)
 	}
 
-	if closed.Bill.State != domain.StateClosed {
-		t.Fatalf("closed state = %q, want closed", closed.Bill.State)
+	if closed.Data.State != domain.StateClosed {
+		t.Fatalf("closed state = %q, want closed", closed.Data.State)
 	}
 
-	read, err := service.GetBill(ctx, "service-e2e-bill")
+	read, err := service.Get(ctx, "service-e2e-bill")
 
 	if err != nil {
 		t.Fatalf("get bill: %v", err)
 	}
 
-	if read.Bill.State != domain.StateClosed {
-		t.Fatalf("read state = %q, want closed", read.Bill.State)
+	if read.Data.State != domain.StateClosed {
+		t.Fatalf("read state = %q, want closed", read.Data.State)
 	}
 
 	persisted, err := service.store.Find(ctx, "service-e2e-bill")

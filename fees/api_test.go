@@ -10,7 +10,7 @@ import (
 	"gocanto.sh/bank/fees/domain"
 )
 
-func TestAPIErrorResponseForUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
+func TestClassifyUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
 	tests := []struct {
 		name       string
 		err        error
@@ -64,7 +64,7 @@ func TestAPIErrorResponseForUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := apiErrorResponseFor(tt.err)
+			got := classify(tt.err)
 
 			if got.code != tt.wantCode {
 				t.Fatalf("code = %v, want %v", got.code, tt.wantCode)
@@ -81,10 +81,10 @@ func TestAPIErrorResponseForUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
 	}
 }
 
-func TestAPIErrorDetailsExposeStatusCode(t *testing.T) {
-	details := apiErrorDetails{StatusCode: http.StatusConflict}
+func TestDetailsExposeStatusCode(t *testing.T) {
+	got := details{StatusCode: http.StatusConflict}
 
-	if details.StatusCode != http.StatusConflict {
-		t.Fatalf("status code = %d, want %d", details.StatusCode, http.StatusConflict)
+	if got.StatusCode != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d", got.StatusCode, http.StatusConflict)
 	}
 }
