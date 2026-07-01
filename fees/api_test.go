@@ -7,7 +7,7 @@ import (
 
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
-	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/internal/fees/domain"
 )
 
 func TestClassifyUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/internal/fees/domain"
 )
 
 const (

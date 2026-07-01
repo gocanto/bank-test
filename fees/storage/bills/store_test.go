@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/internal/fees/domain"
 	"gocanto.sh/bank/fees/storage/bills"
 	"gocanto.sh/bank/internal/platform/sqlite"
 )
