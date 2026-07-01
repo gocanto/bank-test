@@ -2,6 +2,7 @@ package bills_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestStoreFindReturnsNotFound(t *testing.T) {
-	store := openStore(t)
+	store, _ := openStore(t)
 
 	_, err := store.Find(context.Background(), "missing")
 
@@ -23,7 +24,7 @@ func TestStoreFindReturnsNotFound(t *testing.T) {
 }
 
 func TestStoreSavesAndFindsBillSnapshot(t *testing.T) {
-	store := openStore(t)
+	store, _ := openStore(t)
 	bill := newBill(t, "bill-sqlite")
 
 	if err := store.Save(context.Background(), bill); err != nil {
@@ -53,8 +54,8 @@ func TestStoreSavesAndFindsBillSnapshot(t *testing.T) {
 	}
 }
 
-func TestStoreUpdatesExistingBillSnapshot(t *testing.T) {
-	store := openStore(t)
+func TestStoreAppendsAndFindsLatestBillSnapshot(t *testing.T) {
+	store, db := openStore(t)
 	bill := newBill(t, "bill-close")
 
 	if err := store.Save(context.Background(), bill); err != nil {
@@ -84,9 +85,13 @@ func TestStoreUpdatesExistingBillSnapshot(t *testing.T) {
 	if got.ClosedAt == nil {
 		t.Fatal("expected closed_at timestamp")
 	}
+
+	if count := countSnapshots(t, db, bill.ID); count != 2 {
+		t.Fatalf("expected two appended snapshots, got %d", count)
+	}
 }
 
-func openStore(t *testing.T) *bills.Store {
+func openStore(t *testing.T) (*bills.Store, *sql.DB) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -102,7 +107,19 @@ func openStore(t *testing.T) *bills.Store {
 		}
 	})
 
-	return bills.New(db)
+	return bills.New(db), db
+}
+
+func countSnapshots(t *testing.T, db *sql.DB, billID string) int {
+	t.Helper()
+
+	var count int
+
+	if err := db.QueryRow("SELECT COUNT(*) FROM bill_snapshots WHERE bill_id = ?", billID).Scan(&count); err != nil {
+		t.Fatalf("count snapshots: %v", err)
+	}
+
+	return count
 }
 
 func newBill(t *testing.T, billID string) domain.Bill {

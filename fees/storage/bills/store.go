@@ -12,13 +12,17 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	repository *Repository
 }
 
 var ErrNotFound = errors.New("bill snapshot not found")
 
 func New(db *sql.DB) *Store {
-	return &Store{db: db}
+	return NewWithRepository(NewRepository(db))
+}
+
+func NewWithRepository(repository *Repository) *Store {
+	return &Store{repository: repository}
 }
 
 func (s *Store) Save(ctx context.Context, bill domain.Bill) error {
@@ -32,21 +36,16 @@ func (s *Store) Save(ctx context.Context, bill domain.Bill) error {
 		return fmt.Errorf("marshal bill snapshot: %w", err)
 	}
 
-	_, err = s.db.ExecContext(ctx, `
-INSERT INTO bill_snapshots (
-	id, state, period_start, period_end, created_at, closed_at, summary_json, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET
-	state = excluded.state,
-	period_start = excluded.period_start,
-	period_end = excluded.period_end,
-	created_at = excluded.created_at,
-	closed_at = excluded.closed_at,
-	summary_json = excluded.summary_json,
-	updated_at = excluded.updated_at
-`, bill.ID, bill.State, formatTime(bill.PeriodStart), formatTime(bill.PeriodEnd), formatTime(bill.CreatedAt), nullableTime(bill.ClosedAt), string(payload), formatTime(time.Now()))
-
-	if err != nil {
+	if err := s.repository.SaveSnapshot(ctx, Snapshot{
+		BillID:        bill.ID,
+		State:         bill.State,
+		PeriodStart:   formatTime(bill.PeriodStart),
+		PeriodEnd:     formatTime(bill.PeriodEnd),
+		BillCreatedAt: formatTime(bill.CreatedAt),
+		ClosedAt:      nullableTime(bill.ClosedAt),
+		SummaryJSON:   string(payload),
+		RecordedAt:    formatTime(time.Now()),
+	}); err != nil {
 		return fmt.Errorf("save bill snapshot: %w", err)
 	}
 
@@ -58,16 +57,7 @@ func (s *Store) Find(ctx context.Context, billID string) (domain.Bill, error) {
 		return domain.Bill{}, err
 	}
 
-	var payload string
-	err := s.db.QueryRowContext(ctx, `
-SELECT summary_json
-FROM bill_snapshots
-WHERE id = ?
-`, billID).Scan(&payload)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Bill{}, ErrNotFound
-	}
+	snapshot, err := s.repository.FindLatestSnapshot(ctx, billID)
 
 	if err != nil {
 		return domain.Bill{}, fmt.Errorf("find bill snapshot: %w", err)
@@ -75,7 +65,7 @@ WHERE id = ?
 
 	var bill domain.Bill
 
-	if err := json.Unmarshal([]byte(payload), &bill); err != nil {
+	if err := json.Unmarshal([]byte(snapshot.SummaryJSON), &bill); err != nil {
 		return domain.Bill{}, fmt.Errorf("unmarshal bill snapshot: %w", err)
 	}
 
@@ -83,7 +73,7 @@ WHERE id = ?
 }
 
 func (s *Store) ready() error {
-	if s == nil || s.db == nil {
+	if s == nil || s.repository == nil {
 		return errors.New("bills database is required")
 	}
 
@@ -99,5 +89,7 @@ func nullableTime(value *time.Time) any {
 		return nil
 	}
 
-	return formatTime(*value)
+	formatted := formatTime(*value)
+
+	return formatted
 }
