@@ -52,6 +52,32 @@ without adding more infrastructure.
 Docker keeps the local setup repeatable. You should not need to install Encore
 or Temporal directly on your machine to run the service.
 
+## Project Layout
+
+Encore dictates the top-level shape: a service is a package with `//encore:service`
+and `//encore:api` annotations and its `config.cue` alongside it, and Encore generates
+the program entrypoint (there is no `cmd/main.go`). Within that, framework-free code
+lives under `internal/`, split into the service's bounded context and a shared platform
+kernel that future services can reuse.
+
+```
+fees/                         # Encore service — HTTP transport / delivery layer
+  service.go  api.go          # //encore:service and //encore:api handlers
+  config.go  config.cue       # Encore configuration (must live in the service pkg)
+  response.go errors.go       # delivery helpers (response wrapper, error mapping)
+  queries.go persistence.go   # generic Temporal query + snapshot persistence glue
+internal/
+  fees/                       # "fees" bounded context (no framework imports)
+    domain/                   # pure bill/money domain and validation
+    billstore/                # append-only SQLite bill-snapshot store
+    workflows/                # Temporal bill lifecycle workflow
+  platform/                   # shared kernel, reusable by any future service
+    sqlite/                   # SQLite open/migrate bootstrap
+```
+
+A second service (say `accounts`) would be added as another top-level Encore package
+with its own `internal/accounts/…` context, reusing `internal/platform/…` unchanged.
+
 ## How It Works
 
 The public API is under `http://localhost:4000/v1/bank`.
