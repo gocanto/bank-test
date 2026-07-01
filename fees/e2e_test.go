@@ -161,6 +161,7 @@ func dialE2ETemporal(t *testing.T, hostPort string) client.Client {
 	t.Helper()
 
 	deadline := time.Now().Add(60 * time.Second)
+
 	var lastErr error
 
 	for time.Now().Before(deadline) {
