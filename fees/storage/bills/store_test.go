@@ -10,7 +10,7 @@ import (
 
 	"gocanto.sh/bank/fees/domain"
 	"gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/internal/platform/sqlite"
 )
 
 func TestStoreFindReturnsNotFound(t *testing.T) {
@@ -95,7 +95,7 @@ func openStore(t *testing.T) (*bills.Store, *sql.DB) {
 	t.Helper()
 
 	dir := t.TempDir()
-	db, err := database.Open(dir, filepath.Join(dir, "gocanto.sqlite3"))
+	db, err := sqlite.Open(dir, filepath.Join(dir, "gocanto.sqlite3"))
 
 	if err != nil {
 		t.Fatalf("open database: %v", err)

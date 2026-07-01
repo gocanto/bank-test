@@ -10,7 +10,7 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	billstore "gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/internal/platform/sqlite"
 	"gocanto.sh/bank/fees/workflows"
 )
 
@@ -25,7 +25,7 @@ type Service struct {
 func initService() (*Service, error) {
 	cfg := appConfig()
 
-	db, err := database.Open(".", cfg.SQLitePath())
+	db, err := sqlite.Open(".", cfg.SQLitePath())
 
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)

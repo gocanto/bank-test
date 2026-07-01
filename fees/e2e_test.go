@@ -15,7 +15,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 	"gocanto.sh/bank/fees/domain"
 	"gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/internal/platform/sqlite"
 	"gocanto.sh/bank/fees/workflows"
 	_ "modernc.org/sqlite"
 )
@@ -169,7 +169,7 @@ func openE2EMemorySQLite(t *testing.T) *sql.DB {
 		t.Fatalf("open in-memory sqlite: %v", err)
 	}
 
-	if err := database.Migrate(db); err != nil {
+	if err := sqlite.Migrate(db); err != nil {
 		db.Close()
 		t.Fatalf("migrate in-memory sqlite: %v", err)
 	}
