@@ -11,11 +11,6 @@ import (
 	oworkflow "github.com/oullin/workflow/workflow"
 )
 
-const (
-	StateOpen   = "open"
-	StateClosed = "closed"
-)
-
 type LineItem struct {
 	ID          string    `json:"id"`
 	Description string    `json:"description"`
@@ -50,6 +45,11 @@ type AddLineItem struct {
 	Description string `json:"description"`
 	Amount      Money  `json:"amount"`
 }
+
+const (
+	StateOpen   = "open"
+	StateClosed = "closed"
+)
 
 func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 	req.BillID = strings.TrimSpace(req.BillID)
@@ -108,6 +108,7 @@ func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
 	}
 
 	seen := map[string]any{}
+
 	for _, item := range b.LineItems {
 		kv.Set(seen, item.ID, true, false)
 	}
@@ -133,6 +134,7 @@ func (b *Bill) Close(now time.Time) (*Bill, error) {
 	}
 
 	engine, err := billStateMachine()
+
 	if err != nil {
 		return nil, err
 	}
@@ -173,16 +175,19 @@ func (b *Bill) recalculateTotals() {
 
 	for _, values := range grouped {
 		sum, err := aggregator.Sum(values...)
+
 		if err != nil {
 			continue
 		}
 
 		amount, err := sum.Amount()
+
 		if err != nil {
 			continue
 		}
 
 		curr, err := sum.Currency()
+
 		if err != nil {
 			continue
 		}
@@ -204,6 +209,7 @@ func billStateMachine() (*oworkflow.StateMachine[*Bill], error) {
 		SetInitialPlaces(StateOpen).
 		AddTransition("close", []string{StateOpen}, []string{StateClosed}).
 		Build()
+
 	if err != nil {
 		return nil, err
 	}

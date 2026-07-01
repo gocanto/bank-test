@@ -4,6 +4,9 @@ import "encore.dev/config"
 
 type Config struct {
 	TemporalHostPort config.String
+	SQLitePath       config.String
 }
 
-var cfg = config.Load[*Config]()
+func appConfig() *Config {
+	return config.Load[*Config]()
+}

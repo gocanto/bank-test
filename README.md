@@ -1,13 +1,18 @@
-# PaveBank Fees API
+# Gocanto Fees API
 
 Fees API coding challenge implemented with Go, Encore, and Temporal.
+
+Temporal owns the bill lifecycle workflow. SQLite stores durable bill snapshots
+for API reads and recovery-friendly summaries after successful workflow changes.
 
 ## Requirements
 
 - Docker
-- Go 1.26.4 when running commands directly on the host
+- Go version from `ghcr.io/oullin/go-fmt:v0.4.2-full` when running commands directly on the host
 
-Normal local development uses the Dockerized toolbox, so Encore and Temporal CLIs do not need to be installed on the host.
+Normal local development uses the Dockerized toolbox. Its Go version is resolved
+from `go-fmt`, so Encore and Temporal CLIs do not need to be installed on the
+host.
 
 ## Run
 
@@ -24,6 +29,9 @@ make run
 ```
 
 The API listens on `http://localhost:4000`.
+
+Local SQLite state is stored at `storage/database/gocanto.sqlite3`. The
+directory is created automatically and ignored by git.
 
 ## API
 
@@ -62,4 +70,3 @@ make check
 ```
 
 `make check` runs unit tests, Temporal workflow tests, Testcontainers end-to-end tests, and `go vet`.
-

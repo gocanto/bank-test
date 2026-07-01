@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: infra/docker/toolbox.Dockerfile
+      args:
+        GO_VERSION: ${GO_VERSION}
     working_dir: /workspace
     environment:
       ENCORE_DAEMON_DEV: "1"
@@ -33,4 +35,3 @@ volumes:
   go-cache:
   go-mod:
   encore-cache:
-

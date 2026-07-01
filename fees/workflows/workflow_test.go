@@ -14,11 +14,14 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	end := start.AddDate(0, 1, 0)
 	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: end}
 
 	env.RegisterDelayedCallback(func() {
 		amount, err := domain.NewMoney(1500, "USD")
+
 		if err != nil {
 			t.Fatalf("new money: %v", err)
 		}
@@ -33,6 +36,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 				}
 
 				summary, ok := success.(domain.Bill)
+
 				if !ok {
 					t.Fatalf("add update result = %T, want domain.Bill", success)
 				}
@@ -59,6 +63,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 				}
 
 				summary, ok := success.(domain.Bill)
+
 				if !ok {
 					t.Fatalf("close update result = %T, want domain.Bill", success)
 				}
@@ -81,6 +86,7 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 	}
 
 	var result domain.Bill
+
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("workflow result: %v", err)
 	}
@@ -100,6 +106,8 @@ func TestBillWorkflow_AutoClose(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	req := ShortPeriod(start)
 
 	env.ExecuteWorkflow(Bill, req)
@@ -109,6 +117,7 @@ func TestBillWorkflow_AutoClose(t *testing.T) {
 	}
 
 	var result domain.Bill
+
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("workflow result: %v", err)
 	}
@@ -124,6 +133,8 @@ func TestBillWorkflow_RejectsDuplicateLineItem(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: start.AddDate(0, 1, 0)}
 	amount, _ := domain.NewMoney(1500, "USD")
 

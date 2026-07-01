@@ -26,11 +26,13 @@ func NewMoney(amount int64, code string) (Money, error) {
 
 	m := gmoney.NewManager().Create(amount, code)
 	gotAmount, err := m.Amount()
+
 	if err != nil {
 		return Money{}, err
 	}
 
 	gotCurrency, err := m.Currency()
+
 	if err != nil {
 		return Money{}, err
 	}
