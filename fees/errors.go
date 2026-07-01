@@ -7,7 +7,7 @@ import (
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/temporal"
-	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/internal/fees/domain"
 )
 
 type details struct {

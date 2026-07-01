@@ -7,9 +7,9 @@ import (
 
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
-	"gocanto.sh/bank/fees/domain"
-	billstore "gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/workflows"
+	"gocanto.sh/bank/internal/fees/billstore"
+	"gocanto.sh/bank/internal/fees/domain"
+	"gocanto.sh/bank/internal/fees/workflows"
 )
 
 //encore:api public method=POST path=/v1/bank/bills

@@ -13,10 +13,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"gocanto.sh/bank/fees/domain"
-	"gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/storage/database"
-	"gocanto.sh/bank/fees/workflows"
+	"gocanto.sh/bank/internal/fees/billstore"
+	"gocanto.sh/bank/internal/fees/domain"
+	"gocanto.sh/bank/internal/fees/workflows"
+	"gocanto.sh/bank/internal/platform/sqlite"
 	_ "modernc.org/sqlite"
 )
 
@@ -106,7 +106,7 @@ func newE2EService(t *testing.T, ctx context.Context) *Service {
 		client: c,
 		worker: w,
 		db:     db,
-		store:  bills.New(db),
+		store:  billstore.New(db),
 	}
 
 	t.Cleanup(func() {
@@ -151,13 +151,43 @@ func startE2ETemporal(t *testing.T, ctx context.Context) client.Client {
 		t.Fatalf("container port: %v", err)
 	}
 
-	c, err := client.Dial(client.Options{HostPort: host + ":" + port.Port()})
+	return dialE2ETemporal(t, host+":"+port.Port())
+}
 
-	if err != nil {
-		t.Fatalf("dial temporal: %v", err)
+// dialE2ETemporal retries the connection until Temporal's gRPC frontend is
+// actually serving. A listening port only means the container is up; the
+// frontend may still reset the connection mid-handshake while it starts.
+func dialE2ETemporal(t *testing.T, hostPort string) client.Client {
+	t.Helper()
+
+	deadline := time.Now().Add(60 * time.Second)
+
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		c, err := client.Dial(client.Options{HostPort: hostPort})
+
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		if _, err := c.CheckHealth(context.Background(), &client.CheckHealthRequest{}); err != nil {
+			lastErr = err
+			c.Close()
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		return c
 	}
 
-	return c
+	t.Fatalf("dial temporal: %v", lastErr)
+
+	return nil
 }
 
 func openE2EMemorySQLite(t *testing.T) *sql.DB {
@@ -169,7 +199,7 @@ func openE2EMemorySQLite(t *testing.T) *sql.DB {
 		t.Fatalf("open in-memory sqlite: %v", err)
 	}
 
-	if err := database.Migrate(db); err != nil {
+	if err := sqlite.Migrate(db); err != nil {
 		db.Close()
 		t.Fatalf("migrate in-memory sqlite: %v", err)
 	}

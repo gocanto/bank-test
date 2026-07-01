@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/testsuite"
-	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/internal/fees/domain"
 )
 
 func TestBillWorkflow_HappyPathManualClose(t *testing.T) {

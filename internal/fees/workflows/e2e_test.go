@@ -12,8 +12,8 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"gocanto.sh/bank/fees/domain"
-	"gocanto.sh/bank/fees/workflows"
+	"gocanto.sh/bank/internal/fees/domain"
+	"gocanto.sh/bank/internal/fees/workflows"
 )
 
 func TestTemporalE2E_CreateAddCloseBill(t *testing.T) {
@@ -110,11 +110,7 @@ func startTemporal(t *testing.T) (context.Context, client.Client) {
 		t.Fatalf("container port: %v", err)
 	}
 
-	c, err := client.Dial(client.Options{HostPort: host + ":" + port.Port()})
-
-	if err != nil {
-		t.Fatalf("dial temporal: %v", err)
-	}
+	c := dialE2ETemporal(t, host+":"+port.Port())
 
 	t.Cleanup(c.Close)
 
@@ -128,4 +124,40 @@ func startTemporal(t *testing.T) (context.Context, client.Client) {
 	t.Cleanup(w.Stop)
 
 	return ctx, c
+}
+
+// dialE2ETemporal retries the connection until Temporal's gRPC frontend is
+// actually serving. A listening port only means the container is up; the
+// frontend may still reset the connection mid-handshake while it starts.
+func dialE2ETemporal(t *testing.T, hostPort string) client.Client {
+	t.Helper()
+
+	deadline := time.Now().Add(60 * time.Second)
+
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		c, err := client.Dial(client.Options{HostPort: hostPort})
+
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		if _, err := c.CheckHealth(context.Background(), &client.CheckHealthRequest{}); err != nil {
+			lastErr = err
+			c.Close()
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		return c
+	}
+
+	t.Fatalf("dial temporal: %v", lastErr)
+
+	return nil
 }

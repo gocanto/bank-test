@@ -1,4 +1,4 @@
-package bills_test
+package billstore_test
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"gocanto.sh/bank/fees/domain"
-	"gocanto.sh/bank/fees/storage/bills"
-	"gocanto.sh/bank/fees/storage/database"
+	"gocanto.sh/bank/internal/fees/billstore"
+	"gocanto.sh/bank/internal/fees/domain"
+	"gocanto.sh/bank/internal/platform/sqlite"
 )
 
 func TestStoreFindReturnsNotFound(t *testing.T) {
@@ -18,7 +18,7 @@ func TestStoreFindReturnsNotFound(t *testing.T) {
 
 	_, err := store.Find(context.Background(), "missing")
 
-	if !errors.Is(err, bills.ErrNotFound) {
+	if !errors.Is(err, billstore.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -91,11 +91,11 @@ func TestStoreAppendsAndFindsLatestBillSnapshot(t *testing.T) {
 	}
 }
 
-func openStore(t *testing.T) (*bills.Store, *sql.DB) {
+func openStore(t *testing.T) (*billstore.Store, *sql.DB) {
 	t.Helper()
 
 	dir := t.TempDir()
-	db, err := database.Open(dir, filepath.Join(dir, "gocanto.sqlite3"))
+	db, err := sqlite.Open(dir, filepath.Join(dir, "gocanto.sqlite3"))
 
 	if err != nil {
 		t.Fatalf("open database: %v", err)
@@ -107,7 +107,7 @@ func openStore(t *testing.T) (*bills.Store, *sql.DB) {
 		}
 	})
 
-	return bills.New(db), db
+	return billstore.New(db), db
 }
 
 func countSnapshots(t *testing.T, db *sql.DB, billID string) int {
