@@ -6,7 +6,7 @@ DOCKER_COMPOSE := $(shell if command -v docker-compose >/dev/null 2>&1; then pri
 
 .PHONY: help deps format format-all lint test test-e2e vet check build-tools run temporal shell clean
 help:
-	@printf "\nGocanto Fees API\n"
+	@printf "\nGocanto Bank Test\n"
 	@printf "  make deps       Install Go module dependencies\n"
 	@printf "  make format     Format Go files with go-fmt\n"
 	@printf "  make format-all Format all Go files with go-fmt\n"
@@ -17,7 +17,7 @@ help:
 	@printf "  make check      Run the full verification suite\n"
 	@printf "  make build-tools Build the Dockerized toolbox\n"
 	@printf "  make temporal   Start local Temporal dev server\n"
-	@printf "  make run        Run Encore API locally\n"
+	@printf "  make run        Build and run the local API stack\n"
 	@printf "  make shell      Open the Dockerized toolbox\n\n"
 
 deps:
@@ -36,7 +36,7 @@ test:
 	go test ./...
 
 test-e2e:
-	go test -tags=e2e ./...
+	go test -tags=e2e -run 'E2E' ./fees ./fees/workflows
 
 vet:
 	go vet ./...
@@ -47,7 +47,7 @@ build-tools:
 	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) build tools
 
 run:
-	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) run --rm tools encore run --listen=0.0.0.0:4000
+	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) up --build tools
 
 temporal:
 	$(DOCKER_COMPOSE) up temporal

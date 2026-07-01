@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/fees/domain"
-	"encore.app/fees/workflows"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	"gocanto.sh/bank/fees/domain"
+	"gocanto.sh/bank/fees/workflows"
 )
 
 func TestTemporalE2E_CreateAddCloseBill(t *testing.T) {

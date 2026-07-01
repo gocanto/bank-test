@@ -1,0 +1,13 @@
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    uses: ./.github/workflows/go-ci.yml
+    with:
+      suite: e2e

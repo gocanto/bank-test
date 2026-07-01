@@ -3,9 +3,9 @@ package workflows
 import (
 	"time"
 
-	"encore.app/fees/domain"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"gocanto.sh/bank/fees/domain"
 )
 
 const (

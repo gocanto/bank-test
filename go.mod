@@ -1,4 +1,4 @@
-module encore.app
+module gocanto.sh/bank
 
 go 1.26.4
 

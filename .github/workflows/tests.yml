@@ -1,0 +1,14 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  tests:
+    uses: ./.github/workflows/go-ci.yml
+    with:
+      suite: tests
+      build-toolbox: true

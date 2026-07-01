@@ -13,6 +13,7 @@ services:
       DOCKER_HOST: unix:///var/run/docker.sock
       GOCACHE: /go/cache
       GOMODCACHE: /go/pkg/mod
+    command: ["encore", "run", "--listen=0.0.0.0:4000"]
     ports:
       - "4000:4000"
     volumes:
@@ -22,11 +23,17 @@ services:
       - encore-cache:/root/.encore
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
 
   temporal:
     image: temporalio/temporal:latest
     command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-ip", "0.0.0.0"]
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
     ports:
       - "7233:7233"
       - "8233:8233"

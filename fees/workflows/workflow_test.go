@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/fees/domain"
 	"go.temporal.io/sdk/testsuite"
+	"gocanto.sh/bank/fees/domain"
 )
 
 func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
