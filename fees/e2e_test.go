@@ -151,13 +151,42 @@ func startE2ETemporal(t *testing.T, ctx context.Context) client.Client {
 		t.Fatalf("container port: %v", err)
 	}
 
-	c, err := client.Dial(client.Options{HostPort: host + ":" + port.Port()})
+	return dialE2ETemporal(t, host+":"+port.Port())
+}
 
-	if err != nil {
-		t.Fatalf("dial temporal: %v", err)
+// dialE2ETemporal retries the connection until Temporal's gRPC frontend is
+// actually serving. A listening port only means the container is up; the
+// frontend may still reset the connection mid-handshake while it starts.
+func dialE2ETemporal(t *testing.T, hostPort string) client.Client {
+	t.Helper()
+
+	deadline := time.Now().Add(60 * time.Second)
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		c, err := client.Dial(client.Options{HostPort: hostPort})
+
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		if _, err := c.CheckHealth(context.Background(), &client.CheckHealthRequest{}); err != nil {
+			lastErr = err
+			c.Close()
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		return c
 	}
 
-	return c
+	t.Fatalf("dial temporal: %v", lastErr)
+
+	return nil
 }
 
 func openE2EMemorySQLite(t *testing.T) *sql.DB {
