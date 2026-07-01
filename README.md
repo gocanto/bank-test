@@ -1,4 +1,4 @@
-# PaveBank Fees API
+# Gocanto Fees API
 
 Fees API coding challenge implemented with Go, Encore, and Temporal.
 
@@ -30,7 +30,7 @@ make run
 
 The API listens on `http://localhost:4000`.
 
-Local SQLite state is stored at `storage/database/pavebank.sqlite3`. The
+Local SQLite state is stored at `storage/database/gocanto.sqlite3`. The
 directory is created automatically and ignored by git.
 
 ## API

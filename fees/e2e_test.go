@@ -163,7 +163,7 @@ func startE2ETemporal(t *testing.T, ctx context.Context) client.Client {
 func openE2EMemorySQLite(t *testing.T) *sql.DB {
 	t.Helper()
 
-	db, err := sql.Open("sqlite", "file:pavebank-service-e2e?mode=memory&cache=shared")
+	db, err := sql.Open("sqlite", "file:gocanto-service-e2e?mode=memory&cache=shared")
 
 	if err != nil {
 		t.Fatalf("open in-memory sqlite: %v", err)

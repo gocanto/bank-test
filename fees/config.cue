@@ -6,6 +6,6 @@ TemporalHostPort: [
 ][0]
 
 SQLitePath: [
-	if #Meta.Environment.Cloud == "local" { "storage/database/pavebank.sqlite3" },
-	"/tmp/pavebank/pavebank.sqlite3",
+	if #Meta.Environment.Cloud == "local" { "storage/database/gocanto.sqlite3" },
+	"/tmp/gocanto/gocanto.sqlite3",
 ][0]

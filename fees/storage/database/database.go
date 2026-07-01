@@ -11,10 +11,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const fileName = "pavebank.sqlite3"
+const fileName = "gocanto.sqlite3"
 
 func DefaultPath(repoRoot string) string {
-	if value := strings.TrimSpace(os.Getenv("PAVEBANK_DATABASE_PATH")); value != "" {
+	if value := strings.TrimSpace(os.Getenv("GOCANTO_DATABASE_PATH")); value != "" {
 		return value
 	}
 

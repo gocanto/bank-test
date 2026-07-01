@@ -8,7 +8,7 @@ import (
 
 func TestMigrateCreatesBillSnapshotSchema(t *testing.T) {
 	dir := t.TempDir()
-	db, err := Open(dir, filepath.Join(dir, "pavebank.sqlite3"))
+	db, err := Open(dir, filepath.Join(dir, "gocanto.sqlite3"))
 
 	if err != nil {
 		t.Fatalf("open database: %v", err)

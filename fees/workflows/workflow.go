@@ -12,7 +12,7 @@ const (
 	QuerySummary       = "summary"
 	UpdateAddLineItem  = "add_line_item"
 	UpdateCloseBill    = "close_bill"
-	DefaultTaskQueue   = "pavebank-fees"
+	DefaultTaskQueue   = "gocanto-fees"
 	WorkflowNameBill   = "Bill"
 	workflowUpdateNote = "updated by workflow"
 )
