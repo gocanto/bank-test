@@ -14,6 +14,8 @@ func TestBillWorkflow_HappyPathManualClose(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	end := start.AddDate(0, 1, 0)
 	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: end}
 
@@ -104,6 +106,8 @@ func TestBillWorkflow_AutoClose(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	req := ShortPeriod(start)
 
 	env.ExecuteWorkflow(Bill, req)
@@ -129,6 +133,8 @@ func TestBillWorkflow_RejectsDuplicateLineItem(t *testing.T) {
 	env.RegisterWorkflow(Bill)
 
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
 	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: start.AddDate(0, 1, 0)}
 	amount, _ := domain.NewMoney(1500, "USD")
 

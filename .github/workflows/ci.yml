@@ -22,12 +22,23 @@ jobs:
         with:
           go-version: "${{ steps.go-version.outputs.version }}"
           cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Check formatting
         run: make lint
 
       - name: Build Docker toolbox
-        run: make build-tools
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/toolbox.Dockerfile
+          build-args: |
+            GO_VERSION=${{ steps.go-version.outputs.version }}
+          cache-from: type=gha,scope=toolbox
+          cache-to: type=gha,mode=max,scope=toolbox
 
       - name: Run checks
         run: make check
