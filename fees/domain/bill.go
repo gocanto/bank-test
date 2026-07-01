@@ -143,8 +143,7 @@ func (b *Bill) Close(now time.Time) (*Bill, error) {
 		return nil, err
 	}
 
-	closedAt := now.UTC()
-	b.ClosedAt = &closedAt
+	b.ClosedAt = new(now.UTC())
 	b.recalculateTotals()
 
 	return b, nil

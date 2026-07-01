@@ -16,19 +16,13 @@ host.
 
 ## Run
 
-Start Temporal:
-
-```bash
-make temporal
-```
-
-In another terminal, run the Encore service:
+Build and run the local API stack:
 
 ```bash
 make run
 ```
 
-The API listens on `http://localhost:4000`.
+This starts Temporal and the Encore API. The API listens on `http://localhost:4000`.
 
 Local SQLite state is stored at `storage/database/gocanto.sqlite3`. The
 directory is created automatically and ignored by git.
@@ -38,7 +32,7 @@ directory is created automatically and ignored by git.
 Create a bill:
 
 ```bash
-curl -X POST http://localhost:4000/bills \
+curl -X POST http://localhost:4000/v1/bank/bills \
   -H 'content-type: application/json' \
   -d '{"bill_id":"bill-001","period_start":"2026-06-01T00:00:00Z","period_end":"2026-07-01T00:00:00Z"}'
 ```
@@ -46,7 +40,7 @@ curl -X POST http://localhost:4000/bills \
 Add line items:
 
 ```bash
-curl -X POST http://localhost:4000/bills/bill-001/line-items \
+curl -X POST http://localhost:4000/v1/bank/bills/bill-001/line-items \
   -H 'content-type: application/json' \
   -d '{"id":"li-001","description":"Card processing fee","amount":{"amount":1250,"currency":"USD"}}'
 ```
@@ -54,13 +48,13 @@ curl -X POST http://localhost:4000/bills/bill-001/line-items \
 Close the bill:
 
 ```bash
-curl -X POST http://localhost:4000/bills/bill-001/close
+curl -X POST http://localhost:4000/v1/bank/bills/bill-001/close
 ```
 
 Read a summary:
 
 ```bash
-curl http://localhost:4000/bills/bill-001
+curl http://localhost:4000/v1/bank/bills/bill-001
 ```
 
 ## Checks

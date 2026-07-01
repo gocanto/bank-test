@@ -17,7 +17,7 @@ help:
 	@printf "  make check      Run the full verification suite\n"
 	@printf "  make build-tools Build the Dockerized toolbox\n"
 	@printf "  make temporal   Start local Temporal dev server\n"
-	@printf "  make run        Run Encore API locally\n"
+	@printf "  make run        Build and run the local API stack\n"
 	@printf "  make shell      Open the Dockerized toolbox\n\n"
 
 deps:
@@ -47,7 +47,7 @@ build-tools:
 	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) build tools
 
 run:
-	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) run --rm tools encore run --listen=0.0.0.0:4000
+	GO_VERSION="$$(./infra/scripts/go-version.sh)" $(DOCKER_COMPOSE) up --build tools
 
 temporal:
 	$(DOCKER_COMPOSE) up temporal

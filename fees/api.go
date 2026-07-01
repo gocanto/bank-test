@@ -3,6 +3,7 @@ package fees
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -26,7 +27,24 @@ type BillResponse struct {
 	Bill domain.Bill `json:"bill"`
 }
 
-//encore:api public method=POST path=/bills
+//encore:api public method=POST path=/v1/bank/bills
+
+//encore:api public method=POST path=/v1/bank/bills/:billID/line-items
+
+//encore:api public method=POST path=/v1/bank/bills/:billID/close
+
+//encore:api public method=GET path=/v1/bank/bills/:billID
+
+type apiErrorDetails struct {
+	StatusCode int `json:"status_code"`
+}
+
+type apiErrorResponse struct {
+	code       errs.ErrCode
+	message    string
+	statusCode int
+}
+
 func (s *Service) CreateBill(ctx context.Context, req *domain.CreateBill) (*BillResponse, error) {
 	if req == nil {
 		return nil, apiError(domain.ErrInvalidBillID)
@@ -60,7 +78,6 @@ func (s *Service) CreateBill(ctx context.Context, req *domain.CreateBill) (*Bill
 	return &BillResponse{Bill: initialBill.Summary()}, nil
 }
 
-//encore:api public method=POST path=/bills/:billID/line-items
 func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.AddLineItem) (*BillResponse, error) {
 	if req == nil {
 		return nil, apiError(domain.ErrInvalidLineItemID)
@@ -90,7 +107,6 @@ func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.Ad
 	return &BillResponse{Bill: bill}, nil
 }
 
-//encore:api public method=POST path=/bills/:billID/close
 func (s *Service) CloseBill(ctx context.Context, billID string) (*BillResponse, error) {
 	handle, err := s.client.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
 		WorkflowID:   workflows.WorkflowID(billID),
@@ -115,7 +131,6 @@ func (s *Service) CloseBill(ctx context.Context, billID string) (*BillResponse, 
 	return &BillResponse{Bill: bill}, nil
 }
 
-//encore:api public method=GET path=/bills/:billID
 func (s *Service) GetBill(ctx context.Context, billID string) (*BillResponse, error) {
 	stored, storedErr := s.storedBill(ctx, billID)
 
@@ -190,6 +205,19 @@ func apiError(err error) error {
 		return nil
 	}
 
+	response := apiErrorResponseFor(err)
+
+	return errs.B().
+		Code(response.code).
+		Cause(err).
+		Msg(response.message).
+		Details(apiErrorDetails{StatusCode: response.statusCode}).
+		Err()
+}
+
+func (apiErrorDetails) ErrDetails() {}
+
+func apiErrorResponseFor(err error) apiErrorResponse {
 	var applicationErr *temporal.ApplicationError
 
 	if errors.As(err, &applicationErr) && applicationErr.Unwrap() != nil {
@@ -207,16 +235,37 @@ func apiError(err error) error {
 		errors.Is(err, domain.ErrInvalidPeriod),
 		errors.Is(err, domain.ErrInvalidAmount),
 		errors.Is(err, domain.ErrInvalidCurrency):
-		return errs.B().Code(errs.InvalidArgument).Cause(err).Msg(err.Error()).Err()
+		return newAPIErrorResponse(errs.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrDuplicateLineItem):
-		return errs.B().Code(errs.AlreadyExists).Cause(err).Msg(err.Error()).Err()
+		return newAPIErrorResponse(errs.AlreadyExists, err.Error())
 	case errors.As(err, &alreadyStarted):
-		return errs.B().Code(errs.AlreadyExists).Cause(err).Msg("bill already exists").Err()
+		return newAPIErrorResponse(errs.AlreadyExists, "bill already exists")
 	case errors.As(err, &notFound):
-		return errs.B().Code(errs.NotFound).Cause(err).Msg("bill not found").Err()
+		return newAPIErrorResponse(errs.NotFound, "bill not found")
 	case errors.Is(err, domain.ErrBillClosed), errors.Is(err, domain.ErrBillAlreadyClosed):
-		return errs.B().Code(errs.FailedPrecondition).Cause(err).Msg(err.Error()).Err()
+		return newAPIErrorResponse(errs.FailedPrecondition, err.Error())
 	default:
-		return errs.B().Code(errs.Unknown).Cause(err).Msg(err.Error()).Err()
+		return newAPIErrorResponse(errs.Unknown, err.Error())
+	}
+}
+
+func newAPIErrorResponse(code errs.ErrCode, message string) apiErrorResponse {
+	return apiErrorResponse{
+		code:       code,
+		message:    message,
+		statusCode: apiHTTPStatus(code),
+	}
+}
+
+func apiHTTPStatus(code errs.ErrCode) int {
+	switch code {
+	case errs.InvalidArgument, errs.FailedPrecondition:
+		return http.StatusBadRequest
+	case errs.AlreadyExists:
+		return http.StatusConflict
+	case errs.NotFound:
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
 	}
 }
