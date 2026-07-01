@@ -1,0 +1,28 @@
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve Go version from go-fmt
+        id: go-version
+        run: echo "version=$(./infra/scripts/go-version.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ steps.go-version.outputs.version }}"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Run e2e tests
+        run: make test-e2e
