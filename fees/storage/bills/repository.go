@@ -71,11 +71,3 @@ LIMIT 1
 
 	return snapshot, nil
 }
-
-func (r *Repository) ready() error {
-	if r == nil || r.db == nil {
-		return errors.New("bills database is required")
-	}
-
-	return nil
-}

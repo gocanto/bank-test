@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 type Store struct {
 	repository *Repository
 }
-
-var ErrNotFound = errors.New("bill snapshot not found")
 
 func New(db *sql.DB) *Store {
 	return NewWithRepository(NewRepository(db))
@@ -70,26 +67,4 @@ func (s *Store) Find(ctx context.Context, billID string) (domain.Bill, error) {
 	}
 
 	return bill, nil
-}
-
-func (s *Store) ready() error {
-	if s == nil || s.repository == nil {
-		return errors.New("bills database is required")
-	}
-
-	return nil
-}
-
-func formatTime(value time.Time) string {
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func nullableTime(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-
-	formatted := formatTime(*value)
-
-	return formatted
 }
