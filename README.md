@@ -75,6 +75,12 @@ internal/
     sqlite/                   # SQLite open/migrate bootstrap
 ```
 
+Dependencies point inward: `domain` imports nothing from the rest of the tree, the
+`billstore` and `workflows` packages depend only on `domain`, and the `fees` service
+package wires them together with Encore, Temporal, and SQLite. The `internal/` prefix
+keeps every non-service package module-private, so nothing here can be imported from
+outside the module.
+
 A second service (say `accounts`) would be added as another top-level Encore package
 with its own `internal/accounts/…` context, reusing `internal/platform/…` unchanged.
 
