@@ -1,4 +1,4 @@
-module encore.app
+module github.com/gocanto/bank-test
 
 go 1.26.4
 

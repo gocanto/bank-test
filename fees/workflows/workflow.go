@@ -3,7 +3,7 @@ package workflows
 import (
 	"time"
 
-	"encore.app/fees/domain"
+	"github.com/gocanto/bank-test/fees/domain"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )

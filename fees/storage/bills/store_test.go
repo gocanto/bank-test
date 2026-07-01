@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/fees/domain"
-	"encore.app/fees/storage/bills"
-	"encore.app/fees/storage/database"
+	"github.com/gocanto/bank-test/fees/domain"
+	"github.com/gocanto/bank-test/fees/storage/bills"
+	"github.com/gocanto/bank-test/fees/storage/database"
 )
 
 func TestStoreFindReturnsNotFound(t *testing.T) {

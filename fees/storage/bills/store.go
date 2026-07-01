@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"encore.app/fees/domain"
+	"github.com/gocanto/bank-test/fees/domain"
 )
 
 type Store struct {

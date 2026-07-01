@@ -1,6 +1,6 @@
-# Gocanto Fees API
+# Gocanto Bank Test
 
-Fees API coding challenge implemented with Go, Encore, and Temporal.
+Bank test coding challenge implemented with Go, Encore, and Temporal.
 
 Temporal owns the bill lifecycle workflow. SQLite stores durable bill snapshots
 for API reads and recovery-friendly summaries after successful workflow changes.

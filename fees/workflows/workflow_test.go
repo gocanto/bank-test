@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/fees/domain"
+	"github.com/gocanto/bank-test/fees/domain"
 	"go.temporal.io/sdk/testsuite"
 )
 

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"encore.app/fees/domain"
-	billstore "encore.app/fees/storage/bills"
-	"encore.app/fees/workflows"
 	"encore.dev/beta/errs"
+	"github.com/gocanto/bank-test/fees/domain"
+	billstore "github.com/gocanto/bank-test/fees/storage/bills"
+	"github.com/gocanto/bank-test/fees/workflows"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"

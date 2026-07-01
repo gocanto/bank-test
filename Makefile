@@ -6,7 +6,7 @@ DOCKER_COMPOSE := $(shell if command -v docker-compose >/dev/null 2>&1; then pri
 
 .PHONY: help deps format format-all lint test test-e2e vet check build-tools run temporal shell clean
 help:
-	@printf "\nGocanto Fees API\n"
+	@printf "\nGocanto Bank Test\n"
 	@printf "  make deps       Install Go module dependencies\n"
 	@printf "  make format     Format Go files with go-fmt\n"
 	@printf "  make format-all Format all Go files with go-fmt\n"

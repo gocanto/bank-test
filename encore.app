@@ -1,3 +1,3 @@
 {
-  "id": "gocanto-fees-api"
+  "id": "gocanto-bank-test"
 }

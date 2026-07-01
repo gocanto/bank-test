@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/fees/domain"
-	"encore.app/fees/workflows"
+	"github.com/gocanto/bank-test/fees/domain"
+	"github.com/gocanto/bank-test/fees/workflows"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"

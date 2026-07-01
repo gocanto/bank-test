@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	billstore "encore.app/fees/storage/bills"
-	"encore.app/fees/storage/database"
-	"encore.app/fees/workflows"
 	"encore.dev"
+	billstore "github.com/gocanto/bank-test/fees/storage/bills"
+	"github.com/gocanto/bank-test/fees/storage/database"
+	"github.com/gocanto/bank-test/fees/workflows"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
