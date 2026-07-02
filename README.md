@@ -4,12 +4,27 @@ Gocanto Bank Test is a small Go backend for managing bank fee bills. It exposes
 an HTTP API for creating bills, adding line items, closing bills, and reading the
 latest bill summary.
 
-The service is built with Encore, Temporal, and SQLite:
+The service is built with Encore, Temporal, and SQLite. Each one owns a
+distinct concern, which keeps the domain logic free of framework and transport
+details:
 
-- Encore exposes the local HTTP API and service runtime.
-- Temporal owns each bill's lifecycle and workflow state.
-- SQLite stores append-only bill snapshots for reads and recovery-friendly
-  summaries after workflow changes.
+- **Encore exposes the local HTTP API and service runtime.** The `//encore:api`
+  handlers in `fees/` are the whole delivery layer — Encore generates the
+  program entrypoint, routes requests, and injects the Temporal client and
+  SQLite store — so the handlers only translate HTTP calls into domain
+  operations and never carry business rules themselves.
+- **Temporal owns each bill's lifecycle and workflow state.** A bill is a
+  long-lived entity with update rules (open → closed) and a delayed close when
+  the billing period ends. Running that as a workflow makes the current state
+  durable and recoverable: the workflow is the source of truth, and the API
+  merely sends updates (`add line item`, `close`) and queries against it rather
+  than mutating state in place.
+- **SQLite stores append-only bill snapshots for reads and recovery-friendly
+  summaries after workflow changes.** After every successful workflow change the
+  API writes a snapshot, so reads can be served locally and still return a last
+  known bill even when Temporal is unreachable. Because the table is
+  append-only, it doubles as a history of observed states without extra
+  infrastructure or migrations.
 
 ## What It Does
 
@@ -41,17 +56,10 @@ Encore and Temporal CLIs, and its Go version is resolved from
 
 ## Why This Shape
 
-Temporal is used because a bill has lifecycle state, update rules, and delayed
-close behavior. Keeping that state in a workflow makes create, update, query,
-and close operations explicit and recoverable.
-
-SQLite is used for pragmatic local persistence. The API writes a snapshot after
-successful workflow changes, then reads the latest snapshot when it can. The
-snapshot table is append-only, which keeps a history of observed bill states
-without adding more infrastructure.
-
-Docker keeps the local setup repeatable. You should not need to install Encore
-or Temporal directly on your machine to run the service.
+The roles of Encore, Temporal, and SQLite are covered above. Beyond those,
+Docker keeps the local setup repeatable: the Dockerized toolbox pins the Encore
+and Temporal CLIs and the Go version, so you should not need to install any of
+them directly on your machine to run the service.
 
 ## Project Layout
 
