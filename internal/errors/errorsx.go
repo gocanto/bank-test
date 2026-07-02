@@ -1,9 +1,9 @@
-// Package errors holds the generic, domain-agnostic mapping from an error to an
+// Package errorsx holds the generic, domain-agnostic mapping from an error to an
 // Encore error response: an errs.ErrCode, a client-facing message, and the HTTP
 // status carried in the response details. Callers classify their own
 // domain-specific errors into a Fault and hand it to Fail; nothing here depends
 // on any particular bounded context.
-package errors
+package errorsx
 
 import (
 	"net/http"

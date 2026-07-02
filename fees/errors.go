@@ -6,7 +6,7 @@ import (
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/temporal"
-	errpkg "gocanto.sh/bank/internal/errors"
+	errorsx "gocanto.sh/bank/internal/errors"
 	"gocanto.sh/bank/internal/fees/domain"
 )
 
@@ -17,13 +17,13 @@ func fail(err error) error {
 		return nil
 	}
 
-	return errpkg.Fail(err, classify(err))
+	return errorsx.Fail(err, classify(err))
 }
 
 // classify maps a fees domain or Temporal error onto a generic Fault. It is the
 // fees-specific half of error handling; the generic code/status mapping lives
 // in internal/errors.
-func classify(err error) errpkg.Fault {
+func classify(err error) errorsx.Fault {
 	var applicationErr *temporal.ApplicationError
 
 	if errors.As(err, &applicationErr) && applicationErr.Unwrap() != nil {
@@ -41,16 +41,16 @@ func classify(err error) errpkg.Fault {
 		errors.Is(err, domain.ErrInvalidPeriod),
 		errors.Is(err, domain.ErrInvalidAmount),
 		errors.Is(err, domain.ErrInvalidCurrency):
-		return errpkg.Describe(errs.InvalidArgument, err.Error())
+		return errorsx.Describe(errs.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrDuplicateLineItem):
-		return errpkg.Describe(errs.AlreadyExists, err.Error())
+		return errorsx.Describe(errs.AlreadyExists, err.Error())
 	case errors.As(err, &alreadyStarted):
-		return errpkg.Describe(errs.AlreadyExists, "bill already exists")
+		return errorsx.Describe(errs.AlreadyExists, "bill already exists")
 	case errors.As(err, &notFound):
-		return errpkg.Describe(errs.NotFound, "bill not found")
+		return errorsx.Describe(errs.NotFound, "bill not found")
 	case errors.Is(err, domain.ErrBillClosed), errors.Is(err, domain.ErrBillAlreadyClosed):
-		return errpkg.Describe(errs.FailedPrecondition, err.Error())
+		return errorsx.Describe(errs.FailedPrecondition, err.Error())
 	default:
-		return errpkg.Describe(errs.Unknown, err.Error())
+		return errorsx.Describe(errs.Unknown, err.Error())
 	}
 }
