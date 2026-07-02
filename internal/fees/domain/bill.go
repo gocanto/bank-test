@@ -7,8 +7,6 @@ import (
 
 	"github.com/gocanto/collection/kv"
 	"github.com/gocanto/money/money"
-	"github.com/oullin/workflow/store"
-	oworkflow "github.com/oullin/workflow/workflow"
 )
 
 type LineItem struct {
@@ -46,11 +44,6 @@ type AddLineItem struct {
 	Amount      Money  `json:"amount"`
 }
 
-const (
-	StateOpen   = "open"
-	StateClosed = "closed"
-)
-
 func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 	req.BillID = strings.TrimSpace(req.BillID)
 
@@ -71,20 +64,6 @@ func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 		Totals:      []Total{},
 		CreatedAt:   now.UTC(),
 	}, nil
-}
-
-func (b *Bill) GetState() string {
-	if b == nil {
-		return ""
-	}
-
-	return b.State
-}
-
-func (b *Bill) SetState(state string) {
-	if b != nil {
-		b.State = state
-	}
 }
 
 func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
@@ -166,7 +145,7 @@ func (b *Bill) recalculateTotals() {
 
 	for _, item := range b.LineItems {
 		code := strings.ToUpper(item.Amount.Currency)
-		grouped[code] = append(grouped[code], item.Amount.toLibraryMoney())
+		grouped[code] = append(grouped[code], item.Amount.library())
 	}
 
 	totals := make([]Total, 0, len(grouped))
@@ -199,22 +178,4 @@ func (b *Bill) recalculateTotals() {
 	})
 
 	b.Totals = totals
-}
-
-func billStateMachine() (*oworkflow.StateMachine[*Bill], error) {
-	definition, err := oworkflow.NewDefinitionBuilder().
-		AddPlace(StateOpen).
-		AddPlace(StateClosed).
-		SetInitialPlaces(StateOpen).
-		AddTransition("close", []string{StateOpen}, []string{StateClosed}).
-		Build()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return oworkflow.NewStateMachine("bill", definition, &store.SingleState[*Bill]{
-		Getter: (*Bill).GetState,
-		Setter: (*Bill).SetState,
-	}, nil)
 }

@@ -2,42 +2,28 @@ package fees
 
 import (
 	"errors"
-	"net/http"
 
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/temporal"
+	errpkg "gocanto.sh/bank/internal/errors"
 	"gocanto.sh/bank/internal/fees/domain"
 )
 
-type details struct {
-	StatusCode int `json:"status_code"`
-}
-
-type fault struct {
-	code       errs.ErrCode
-	message    string
-	statusCode int
-}
-
-func (details) ErrDetails() {}
-
+// fail classifies a fees error and wraps it into an Encore error. A nil err
+// returns nil so handlers can pass results through unconditionally.
 func fail(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	response := classify(err)
-
-	return errs.B().
-		Code(response.code).
-		Cause(err).
-		Msg(response.message).
-		Details(details{StatusCode: response.statusCode}).
-		Err()
+	return errpkg.Fail(err, classify(err))
 }
 
-func classify(err error) fault {
+// classify maps a fees domain or Temporal error onto a generic Fault. It is the
+// fees-specific half of error handling; the generic code/status mapping lives
+// in internal/errors.
+func classify(err error) errpkg.Fault {
 	var applicationErr *temporal.ApplicationError
 
 	if errors.As(err, &applicationErr) && applicationErr.Unwrap() != nil {
@@ -55,37 +41,16 @@ func classify(err error) fault {
 		errors.Is(err, domain.ErrInvalidPeriod),
 		errors.Is(err, domain.ErrInvalidAmount),
 		errors.Is(err, domain.ErrInvalidCurrency):
-		return describe(errs.InvalidArgument, err.Error())
+		return errpkg.Describe(errs.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrDuplicateLineItem):
-		return describe(errs.AlreadyExists, err.Error())
+		return errpkg.Describe(errs.AlreadyExists, err.Error())
 	case errors.As(err, &alreadyStarted):
-		return describe(errs.AlreadyExists, "bill already exists")
+		return errpkg.Describe(errs.AlreadyExists, "bill already exists")
 	case errors.As(err, &notFound):
-		return describe(errs.NotFound, "bill not found")
+		return errpkg.Describe(errs.NotFound, "bill not found")
 	case errors.Is(err, domain.ErrBillClosed), errors.Is(err, domain.ErrBillAlreadyClosed):
-		return describe(errs.FailedPrecondition, err.Error())
+		return errpkg.Describe(errs.FailedPrecondition, err.Error())
 	default:
-		return describe(errs.Unknown, err.Error())
-	}
-}
-
-func describe(code errs.ErrCode, message string) fault {
-	return fault{
-		code:       code,
-		message:    message,
-		statusCode: status(code),
-	}
-}
-
-func status(code errs.ErrCode) int {
-	switch code {
-	case errs.InvalidArgument, errs.FailedPrecondition:
-		return http.StatusBadRequest
-	case errs.AlreadyExists:
-		return http.StatusConflict
-	case errs.NotFound:
-		return http.StatusNotFound
-	default:
-		return http.StatusInternalServerError
+		return errpkg.Describe(errs.Unknown, err.Error())
 	}
 }

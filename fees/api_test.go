@@ -66,25 +66,17 @@ func TestClassifyUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := classify(tt.err)
 
-			if got.code != tt.wantCode {
-				t.Fatalf("code = %v, want %v", got.code, tt.wantCode)
+			if got.Code != tt.wantCode {
+				t.Fatalf("code = %v, want %v", got.Code, tt.wantCode)
 			}
 
-			if got.statusCode != tt.wantStatus {
-				t.Fatalf("statusCode = %d, want %d", got.statusCode, tt.wantStatus)
+			if got.StatusCode != tt.wantStatus {
+				t.Fatalf("statusCode = %d, want %d", got.StatusCode, tt.wantStatus)
 			}
 
-			if got.message != tt.wantMsg {
-				t.Fatalf("message = %q, want %q", got.message, tt.wantMsg)
+			if got.Message != tt.wantMsg {
+				t.Fatalf("message = %q, want %q", got.Message, tt.wantMsg)
 			}
 		})
-	}
-}
-
-func TestDetailsExposeStatusCode(t *testing.T) {
-	got := details{StatusCode: http.StatusConflict}
-
-	if got.StatusCode != http.StatusConflict {
-		t.Fatalf("status code = %d, want %d", got.StatusCode, http.StatusConflict)
 	}
 }
