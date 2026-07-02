@@ -67,7 +67,7 @@ fees/                         # Encore service — HTTP transport / delivery lay
   errors.go                   # fees-specific error classification (domain → Fault)
 internal/
   bootstrap/                  # service wiring: open SQLite, dial Temporal, start worker
-  errors/                     # generic error → Encore code / HTTP status mapping
+  errors/                     # generic error → Encore code / HTTP status mapping (package errorsx)
   response/                   # generic Response[T] envelope
   database/                   # generic snapshot persistence glue (Persist / Stored)
   temporal/                   # generic Temporal workflow query helper
