@@ -56,19 +56,23 @@ or Temporal directly on your machine to run the service.
 
 Encore dictates the top-level shape: a service is a package with `//encore:service`
 and `//encore:api` annotations and its `config.cue` alongside it, and Encore generates
-the program entrypoint (there is no `cmd/main.go`). Within that, framework-free code
-lives under `internal/`, split into the service's bounded context and a shared platform
-kernel that future services can reuse.
+the program entrypoint (there is no `cmd/main.go`). The service package holds only what
+Encore requires; everything framework-free lives under `internal/`, split into generic
+reusable packages, the service's bounded context, and a shared platform kernel.
 
 ```
 fees/                         # Encore service — HTTP transport / delivery layer
   service.go  api.go          # //encore:service and //encore:api handlers
   config.go  config.cue       # Encore configuration (must live in the service pkg)
-  response.go errors.go       # delivery helpers (response wrapper, error mapping)
-  queries.go persistence.go   # generic Temporal query + snapshot persistence glue
+  errors.go                   # fees-specific error classification (domain → Fault)
 internal/
+  bootstrap/                  # service wiring: open SQLite, dial Temporal, start worker
+  errorsx/                    # generic error → Encore code / HTTP status mapping
+  response/                   # generic Response[T] envelope
+  database/                   # generic snapshot persistence glue (Persist / Stored)
+  temporal/                   # generic Temporal workflow query helper
   fees/                       # "fees" bounded context (no framework imports)
-    domain/                   # pure bill/money domain and validation
+    domain/                   # pure bill/money domain, validation, and state machine
     billstore/                # append-only SQLite bill-snapshot store
     workflows/                # Temporal bill lifecycle workflow
   platform/                   # shared kernel, reusable by any future service
@@ -76,13 +80,17 @@ internal/
 ```
 
 Dependencies point inward: `domain` imports nothing from the rest of the tree, the
-`billstore` and `workflows` packages depend only on `domain`, and the `fees` service
-package wires them together with Encore, Temporal, and SQLite. The `internal/` prefix
-keeps every non-service package module-private, so nothing here can be imported from
-outside the module.
+`billstore` and `workflows` packages depend only on `domain`, and the generic
+`bootstrap`, `errorsx`, `response`, `database`, and `temporal` packages carry no
+bounded-context knowledge. The `fees` service package is a thin adapter that classifies
+its own errors and delegates wiring to `bootstrap`. The `internal/` prefix keeps every
+non-service package module-private, so nothing here can be imported from outside the
+module.
 
 A second service (say `accounts`) would be added as another top-level Encore package
-with its own `internal/accounts/…` context, reusing `internal/platform/…` unchanged.
+with its own `internal/accounts/…` context, reusing `internal/bootstrap`,
+`internal/errorsx`, `internal/response`, `internal/database`, `internal/temporal`, and
+`internal/platform/…` unchanged.
 
 ## How It Works
 

@@ -7,13 +7,16 @@ import (
 
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
+	"gocanto.sh/bank/internal/database"
 	"gocanto.sh/bank/internal/fees/billstore"
 	"gocanto.sh/bank/internal/fees/domain"
 	"gocanto.sh/bank/internal/fees/workflows"
+	"gocanto.sh/bank/internal/response"
+	"gocanto.sh/bank/internal/temporal"
 )
 
 //encore:api public method=POST path=/v1/bank/bills
-func (s *Service) Create(ctx context.Context, req *domain.CreateBill) (*Response[domain.Bill], error) {
+func (s *Service) Create(ctx context.Context, req *domain.CreateBill) (*response.Response[domain.Bill], error) {
 	if req == nil {
 		return nil, fail(domain.ErrInvalidBillID)
 	}
@@ -26,28 +29,54 @@ func (s *Service) Create(ctx context.Context, req *domain.CreateBill) (*Response
 		return nil, fail(err)
 	}
 
-	run, err := s.client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+	if _, err := s.client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:                       workflowID,
 		TaskQueue:                taskQueue(),
 		WorkflowIDReusePolicy:    enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 		WorkflowExecutionTimeout: req.PeriodEnd.Sub(req.PeriodStart) + 24*time.Hour,
-	}, workflows.WorkflowNameBill, *req)
+	}, workflows.WorkflowNameBill, *req); err != nil {
+		return nil, fail(err)
+	}
+
+	// The workflow is the source of truth for the bill, including its creation
+	// timestamp (set from workflow.Now). Read it back so the response and the
+	// persisted snapshot match what later reads return. A query on a freshly
+	// started workflow blocks only until its first task completes; fall back to
+	// the locally built bill if it is not yet answerable.
+	created := initialBill.Summary()
+
+	if summary, ok := s.querySummary(ctx, workflowID); ok {
+		created = summary
+	}
+
+	if err := database.Persist(ctx, s.store, created); err != nil {
+		return nil, fail(err)
+	}
+
+	return response.Respond(created), nil
+}
+
+// querySummary returns the workflow's current bill summary. Unlike
+// temporal.Query it never falls back to the workflow result, which would block
+// until the bill's period ends, so it is safe to call on an open bill.
+func (s *Service) querySummary(ctx context.Context, workflowID string) (domain.Bill, bool) {
+	resp, err := s.client.QueryWorkflow(ctx, workflowID, "", workflows.QuerySummary)
 
 	if err != nil {
-		return nil, fail(err)
+		return domain.Bill{}, false
 	}
 
-	_ = run
+	var summary domain.Bill
 
-	if err := persist(ctx, s.store, initialBill.Summary()); err != nil {
-		return nil, fail(err)
+	if err := resp.Get(&summary); err != nil {
+		return domain.Bill{}, false
 	}
 
-	return respond(initialBill.Summary()), nil
+	return summary, true
 }
 
 //encore:api public method=POST path=/v1/bank/bills/:billID/line-items
-func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.AddLineItem) (*Response[domain.Bill], error) {
+func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.AddLineItem) (*response.Response[domain.Bill], error) {
 	if req == nil {
 		return nil, fail(domain.ErrInvalidLineItemID)
 	}
@@ -69,15 +98,15 @@ func (s *Service) AddLineItem(ctx context.Context, billID string, req *domain.Ad
 		return nil, fail(err)
 	}
 
-	if err := persist(ctx, s.store, bill); err != nil {
+	if err := database.Persist(ctx, s.store, bill); err != nil {
 		return nil, fail(err)
 	}
 
-	return respond(bill), nil
+	return response.Respond(bill), nil
 }
 
 //encore:api public method=POST path=/v1/bank/bills/:billID/close
-func (s *Service) Close(ctx context.Context, billID string) (*Response[domain.Bill], error) {
+func (s *Service) Close(ctx context.Context, billID string) (*response.Response[domain.Bill], error) {
 	handle, err := s.client.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
 		WorkflowID:   workflows.WorkflowID(billID),
 		UpdateName:   workflows.UpdateCloseBill,
@@ -94,34 +123,34 @@ func (s *Service) Close(ctx context.Context, billID string) (*Response[domain.Bi
 		return nil, fail(err)
 	}
 
-	if err := persist(ctx, s.store, bill); err != nil {
+	if err := database.Persist(ctx, s.store, bill); err != nil {
 		return nil, fail(err)
 	}
 
-	return respond(bill), nil
+	return response.Respond(bill), nil
 }
 
 //encore:api public method=GET path=/v1/bank/bills/:billID
-func (s *Service) Get(ctx context.Context, billID string) (*Response[domain.Bill], error) {
-	cached, cachedErr := stored[domain.Bill](ctx, s.store, billID, billstore.ErrNotFound)
+func (s *Service) Get(ctx context.Context, billID string) (*response.Response[domain.Bill], error) {
+	cached, cachedErr := database.Stored[domain.Bill](ctx, s.store, billID, billstore.ErrNotFound)
 
 	if cachedErr == nil && cached.State == domain.StateClosed {
-		return respond(cached), nil
+		return response.Respond(cached), nil
 	}
 
-	bill, err := query[domain.Bill](ctx, s.client, workflows.WorkflowID(billID), workflows.QuerySummary)
+	bill, err := temporal.Query[domain.Bill](ctx, s.client, workflows.WorkflowID(billID), workflows.QuerySummary)
 
 	if err != nil {
 		if cachedErr == nil {
-			return respond(cached), nil
+			return response.Respond(cached), nil
 		}
 
 		return nil, fail(err)
 	}
 
-	if err := persist(ctx, s.store, bill); err != nil {
+	if err := database.Persist(ctx, s.store, bill); err != nil {
 		return nil, fail(err)
 	}
 
-	return respond(bill), nil
+	return response.Respond(bill), nil
 }

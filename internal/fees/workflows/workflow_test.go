@@ -151,17 +151,102 @@ func TestBillWorkflow_RejectsDuplicateLineItem(t *testing.T) {
 		}, domain.AddLineItem{ID: "li-1", Description: "fee", Amount: amount})
 	}, time.Second)
 
+	var rejected bool
+
 	env.RegisterDelayedCallback(func() {
 		env.UpdateWorkflow(UpdateAddLineItem, "", &testsuite.TestUpdateCallback{
-			OnReject: func(error) {},
+			OnReject: func(error) { rejected = true },
 			OnAccept: func() {},
 			OnComplete: func(success interface{}, err error) {
-				if err == nil {
-					t.Fatalf("expected duplicate update to fail")
-				}
+				t.Fatalf("expected duplicate update to be rejected, got completion (err=%v)", err)
 			},
 		}, domain.AddLineItem{ID: "li-1", Description: "fee", Amount: amount})
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(Bill, req)
+
+	if !rejected {
+		t.Fatal("duplicate line item was not rejected by the update validator")
+	}
+}
+
+func TestBillWorkflow_RejectsAddToClosedBill(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterWorkflow(Bill)
+
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
+	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: start.AddDate(0, 1, 0)}
+	amount, _ := domain.NewMoney(1500, "USD")
+
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(UpdateCloseBill, "", &testsuite.TestUpdateCallback{
+			OnReject: func(err error) { t.Fatalf("close rejected: %v", err) },
+			OnComplete: func(success interface{}, err error) {
+				if err != nil {
+					t.Fatalf("close failed: %v", err)
+				}
+			},
+		})
+	}, time.Second)
+
+	var rejected bool
+
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(UpdateAddLineItem, "", &testsuite.TestUpdateCallback{
+			OnReject: func(error) { rejected = true },
+			OnAccept: func() {},
+			OnComplete: func(success interface{}, err error) {
+				t.Fatalf("expected add-to-closed to be rejected, got completion (err=%v)", err)
+			},
+		}, domain.AddLineItem{ID: "li-2", Description: "late fee", Amount: amount})
+	}, 2*time.Second)
+
+	env.ExecuteWorkflow(Bill, req)
+
+	if !rejected {
+		t.Fatal("adding a line item to a closed bill was not rejected")
+	}
+}
+
+func TestBillWorkflow_RejectsDoubleClose(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterWorkflow(Bill)
+
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+
+	req := domain.CreateBill{BillID: "bill-1", PeriodStart: start, PeriodEnd: start.AddDate(0, 1, 0)}
+
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(UpdateCloseBill, "", &testsuite.TestUpdateCallback{
+			OnReject: func(err error) { t.Fatalf("first close rejected: %v", err) },
+			OnComplete: func(success interface{}, err error) {
+				if err != nil {
+					t.Fatalf("first close failed: %v", err)
+				}
+			},
+		})
+	}, time.Second)
+
+	var rejected bool
+
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(UpdateCloseBill, "", &testsuite.TestUpdateCallback{
+			OnReject: func(error) { rejected = true },
+			OnAccept: func() {},
+			OnComplete: func(success interface{}, err error) {
+				t.Fatalf("expected second close to be rejected, got completion (err=%v)", err)
+			},
+		})
+	}, 2*time.Second)
+
+	env.ExecuteWorkflow(Bill, req)
+
+	if !rejected {
+		t.Fatal("closing an already-closed bill was not rejected")
+	}
 }

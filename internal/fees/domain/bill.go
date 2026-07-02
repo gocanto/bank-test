@@ -5,10 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gocanto/collection/kv"
 	"github.com/gocanto/money/money"
-	"github.com/oullin/workflow/store"
-	oworkflow "github.com/oullin/workflow/workflow"
 )
 
 type LineItem struct {
@@ -46,11 +43,6 @@ type AddLineItem struct {
 	Amount      Money  `json:"amount"`
 }
 
-const (
-	StateOpen   = "open"
-	StateClosed = "closed"
-)
-
 func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 	req.BillID = strings.TrimSpace(req.BillID)
 
@@ -73,64 +65,28 @@ func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 	}, nil
 }
 
-func (b *Bill) GetState() string {
-	if b == nil {
-		return ""
-	}
-
-	return b.State
-}
-
-func (b *Bill) SetState(state string) {
-	if b != nil {
-		b.State = state
-	}
-}
-
 func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
-	if b.State == StateClosed {
-		return nil, ErrBillClosed
-	}
-
-	req.ID = strings.TrimSpace(req.ID)
-	req.Description = strings.TrimSpace(req.Description)
-
-	if req.ID == "" {
-		return nil, ErrInvalidLineItemID
-	}
-
-	if req.Description == "" {
-		return nil, ErrInvalidDescription
-	}
-
-	if err := req.Amount.Validate(); err != nil {
+	if err := b.ValidateAddLineItem(req); err != nil {
 		return nil, err
 	}
 
-	seen := map[string]any{}
-
-	for _, item := range b.LineItems {
-		kv.Set(seen, item.ID, true, false)
-	}
-
-	if kv.Has(seen, req.ID) {
-		return nil, ErrDuplicateLineItem
-	}
-
 	b.LineItems = append(b.LineItems, LineItem{
-		ID:          req.ID,
-		Description: req.Description,
+		ID:          strings.TrimSpace(req.ID),
+		Description: strings.TrimSpace(req.Description),
 		Amount:      req.Amount,
 		CreatedAt:   now.UTC(),
 	})
-	b.recalculateTotals()
+
+	if err := b.recalculateTotals(); err != nil {
+		return nil, err
+	}
 
 	return b, nil
 }
 
 func (b *Bill) Close(now time.Time) (*Bill, error) {
-	if b.State == StateClosed {
-		return nil, ErrBillAlreadyClosed
+	if err := b.ValidateClose(); err != nil {
+		return nil, err
 	}
 
 	engine, err := billStateMachine()
@@ -144,7 +100,10 @@ func (b *Bill) Close(now time.Time) (*Bill, error) {
 	}
 
 	b.ClosedAt = new(now.UTC())
-	b.recalculateTotals()
+
+	if err := b.recalculateTotals(); err != nil {
+		return nil, err
+	}
 
 	return b, nil
 }
@@ -161,12 +120,16 @@ func (b *Bill) Summary() Bill {
 	return summary
 }
 
-func (b *Bill) recalculateTotals() {
+// recalculateTotals recomputes per-currency totals from the current line items.
+// Any aggregation failure is returned rather than skipped: a dropped currency
+// would silently under-report the amount being charged, which must never happen
+// for a monetary total.
+func (b *Bill) recalculateTotals() error {
 	grouped := map[string][]*money.Money{}
 
 	for _, item := range b.LineItems {
 		code := strings.ToUpper(item.Amount.Currency)
-		grouped[code] = append(grouped[code], item.Amount.toLibraryMoney())
+		grouped[code] = append(grouped[code], item.Amount.library())
 	}
 
 	totals := make([]Total, 0, len(grouped))
@@ -176,19 +139,19 @@ func (b *Bill) recalculateTotals() {
 		sum, err := aggregator.Sum(values...)
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		amount, err := sum.Amount()
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		curr, err := sum.Currency()
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		totals = append(totals, Total{Amount: amount, Currency: curr.Code})
@@ -199,22 +162,6 @@ func (b *Bill) recalculateTotals() {
 	})
 
 	b.Totals = totals
-}
 
-func billStateMachine() (*oworkflow.StateMachine[*Bill], error) {
-	definition, err := oworkflow.NewDefinitionBuilder().
-		AddPlace(StateOpen).
-		AddPlace(StateClosed).
-		SetInitialPlaces(StateOpen).
-		AddTransition("close", []string{StateOpen}, []string{StateClosed}).
-		Build()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return oworkflow.NewStateMachine("bill", definition, &store.SingleState[*Bill]{
-		Getter: (*Bill).GetState,
-		Setter: (*Bill).SetState,
-	}, nil)
+	return nil
 }

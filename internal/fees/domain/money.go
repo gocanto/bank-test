@@ -8,6 +8,10 @@ import (
 	gmoney "github.com/gocanto/money/money"
 )
 
+// Money is the API-boundary DTO for a monetary value on requests and responses.
+// It carries the exported amount/currency Encore needs to (de)serialize, while
+// all validation and arithmetic delegate to github.com/gocanto/money via
+// library(), which is the single point of conversion to the library type.
 type Money struct {
 	Amount   int64  `json:"amount"`
 	Currency string `json:"currency"`
@@ -55,15 +59,18 @@ func (m Money) Validate() error {
 	return err
 }
 
-func (m Money) toLibraryMoney() *gmoney.Money {
+// library converts the DTO into the underlying money library value used for
+// validation and aggregation.
+func (m Money) library() *gmoney.Money {
 	return gmoney.NewManager().Create(m.Amount, strings.ToUpper(m.Currency))
 }
 
 func (m Money) MarshalJSON() ([]byte, error) {
-	type payload Money
+	if m == (Money{}) {
+		type payload Money
 
-	return json.Marshal(payload{
-		Amount:   m.Amount,
-		Currency: strings.ToUpper(m.Currency),
-	})
+		return json.Marshal(payload{})
+	}
+
+	return m.library().MarshalJSON()
 }
