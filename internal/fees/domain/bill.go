@@ -66,24 +66,27 @@ func NewBill(req CreateBill, now time.Time) (*Bill, error) {
 	}, nil
 }
 
-func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
+// ValidateAddLineItem reports whether req may be added to the bill without
+// mutating any state. It is the single source of truth for add-line-item rules,
+// shared by AddLineItem and by the workflow's update validator so invalid
+// updates can be rejected before they are admitted.
+func (b *Bill) ValidateAddLineItem(req AddLineItem) error {
 	if b.State == StateClosed {
-		return nil, ErrBillClosed
+		return ErrBillClosed
 	}
 
-	req.ID = strings.TrimSpace(req.ID)
-	req.Description = strings.TrimSpace(req.Description)
+	id := strings.TrimSpace(req.ID)
 
-	if req.ID == "" {
-		return nil, ErrInvalidLineItemID
+	if id == "" {
+		return ErrInvalidLineItemID
 	}
 
-	if req.Description == "" {
-		return nil, ErrInvalidDescription
+	if strings.TrimSpace(req.Description) == "" {
+		return ErrInvalidDescription
 	}
 
 	if err := req.Amount.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	seen := map[string]any{}
@@ -92,24 +95,45 @@ func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
 		kv.Set(seen, item.ID, true, false)
 	}
 
-	if kv.Has(seen, req.ID) {
-		return nil, ErrDuplicateLineItem
+	if kv.Has(seen, id) {
+		return ErrDuplicateLineItem
+	}
+
+	return nil
+}
+
+func (b *Bill) AddLineItem(req AddLineItem, now time.Time) (*Bill, error) {
+	if err := b.ValidateAddLineItem(req); err != nil {
+		return nil, err
 	}
 
 	b.LineItems = append(b.LineItems, LineItem{
-		ID:          req.ID,
-		Description: req.Description,
+		ID:          strings.TrimSpace(req.ID),
+		Description: strings.TrimSpace(req.Description),
 		Amount:      req.Amount,
 		CreatedAt:   now.UTC(),
 	})
-	b.recalculateTotals()
+
+	if err := b.recalculateTotals(); err != nil {
+		return nil, err
+	}
 
 	return b, nil
 }
 
-func (b *Bill) Close(now time.Time) (*Bill, error) {
+// ValidateClose reports whether the bill may be closed without mutating state.
+// Shared by Close and by the workflow's close update validator.
+func (b *Bill) ValidateClose() error {
 	if b.State == StateClosed {
-		return nil, ErrBillAlreadyClosed
+		return ErrBillAlreadyClosed
+	}
+
+	return nil
+}
+
+func (b *Bill) Close(now time.Time) (*Bill, error) {
+	if err := b.ValidateClose(); err != nil {
+		return nil, err
 	}
 
 	engine, err := billStateMachine()
@@ -123,7 +147,10 @@ func (b *Bill) Close(now time.Time) (*Bill, error) {
 	}
 
 	b.ClosedAt = new(now.UTC())
-	b.recalculateTotals()
+
+	if err := b.recalculateTotals(); err != nil {
+		return nil, err
+	}
 
 	return b, nil
 }
@@ -140,7 +167,11 @@ func (b *Bill) Summary() Bill {
 	return summary
 }
 
-func (b *Bill) recalculateTotals() {
+// recalculateTotals recomputes per-currency totals from the current line items.
+// Any aggregation failure is returned rather than skipped: a dropped currency
+// would silently under-report the amount being charged, which must never happen
+// for a monetary total.
+func (b *Bill) recalculateTotals() error {
 	grouped := map[string][]*money.Money{}
 
 	for _, item := range b.LineItems {
@@ -155,19 +186,19 @@ func (b *Bill) recalculateTotals() {
 		sum, err := aggregator.Sum(values...)
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		amount, err := sum.Amount()
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		curr, err := sum.Currency()
 
 		if err != nil {
-			continue
+			return err
 		}
 
 		totals = append(totals, Total{Amount: amount, Currency: curr.Code})
@@ -178,4 +209,6 @@ func (b *Bill) recalculateTotals() {
 	})
 
 	b.Totals = totals
+
+	return nil
 }

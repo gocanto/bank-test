@@ -7,6 +7,7 @@ import (
 
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/temporal"
 	"gocanto.sh/bank/internal/fees/domain"
 )
 
@@ -52,6 +53,37 @@ func TestClassifyUsesEncoreCodesAndHTTPStatusDetails(t *testing.T) {
 			wantCode:   errs.FailedPrecondition,
 			wantStatus: http.StatusBadRequest,
 			wantMsg:    domain.ErrBillClosed.Error(),
+		},
+		{
+			// Simulates the gRPC boundary: a workflow update failure arrives as
+			// an ApplicationError carrying only the code and message, with no
+			// unwrappable domain error. Classification must rely on the code.
+			name:       "closed bill over rpc",
+			err:        temporal.NewNonRetryableApplicationError(domain.ErrBillClosed.Error(), domain.CodeBillClosed, nil),
+			wantCode:   errs.FailedPrecondition,
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    domain.ErrBillClosed.Error(),
+		},
+		{
+			name:       "duplicate line item over rpc",
+			err:        temporal.NewNonRetryableApplicationError(domain.ErrDuplicateLineItem.Error(), domain.CodeDuplicateLineItem, nil),
+			wantCode:   errs.AlreadyExists,
+			wantStatus: http.StatusConflict,
+			wantMsg:    domain.ErrDuplicateLineItem.Error(),
+		},
+		{
+			name:       "validation over rpc",
+			err:        temporal.NewNonRetryableApplicationError(domain.ErrInvalidCurrency.Error(), domain.CodeValidation, nil),
+			wantCode:   errs.InvalidArgument,
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    domain.ErrInvalidCurrency.Error(),
+		},
+		{
+			name:       "internal over rpc",
+			err:        temporal.NewNonRetryableApplicationError("boom", domain.CodeInternal, nil),
+			wantCode:   errs.Unknown,
+			wantStatus: http.StatusInternalServerError,
+			wantMsg:    "boom",
 		},
 		{
 			name:       "unknown",

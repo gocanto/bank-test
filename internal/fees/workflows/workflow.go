@@ -9,12 +9,11 @@ import (
 )
 
 const (
-	QuerySummary       = "summary"
-	UpdateAddLineItem  = "add_line_item"
-	UpdateCloseBill    = "close_bill"
-	DefaultTaskQueue   = "gocanto-fees"
-	WorkflowNameBill   = "Bill"
-	workflowUpdateNote = "updated by workflow"
+	QuerySummary      = "summary"
+	UpdateAddLineItem = "add_line_item"
+	UpdateCloseBill   = "close_bill"
+	DefaultTaskQueue  = "gocanto-fees"
+	WorkflowNameBill  = "Bill"
 )
 
 func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
@@ -22,7 +21,7 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 	bill, err := domain.NewBill(req, now)
 
 	if err != nil {
-		return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
+		return domain.Bill{}, appError(err)
 	}
 
 	if err := workflow.SetQueryHandler(ctx, QuerySummary, func() (domain.Bill, error) {
@@ -31,30 +30,46 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 		return domain.Bill{}, err
 	}
 
-	if err := workflow.SetUpdateHandler(ctx, UpdateAddLineItem, func(ctx workflow.Context, req domain.AddLineItem) (domain.Bill, error) {
+	if err := workflow.SetUpdateHandlerWithOptions(ctx, UpdateAddLineItem, func(ctx workflow.Context, req domain.AddLineItem) (domain.Bill, error) {
 		updated, err := bill.AddLineItem(req, workflow.Now(ctx))
 
 		if err != nil {
-			return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
+			return domain.Bill{}, appError(err)
 		}
 
 		bill = updated
 
 		return bill.Summary(), nil
+	}, workflow.UpdateHandlerOptions{
+		Validator: func(ctx workflow.Context, req domain.AddLineItem) error {
+			if err := bill.ValidateAddLineItem(req); err != nil {
+				return appError(err)
+			}
+
+			return nil
+		},
 	}); err != nil {
 		return domain.Bill{}, err
 	}
 
-	if err := workflow.SetUpdateHandler(ctx, UpdateCloseBill, func(ctx workflow.Context) (domain.Bill, error) {
+	if err := workflow.SetUpdateHandlerWithOptions(ctx, UpdateCloseBill, func(ctx workflow.Context) (domain.Bill, error) {
 		updated, err := bill.Close(workflow.Now(ctx))
 
 		if err != nil {
-			return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
+			return domain.Bill{}, appError(err)
 		}
 
 		bill = updated
 
 		return bill.Summary(), nil
+	}, workflow.UpdateHandlerOptions{
+		Validator: func(ctx workflow.Context) error {
+			if err := bill.ValidateClose(); err != nil {
+				return appError(err)
+			}
+
+			return nil
+		},
 	}); err != nil {
 		return domain.Bill{}, err
 	}
@@ -69,11 +84,19 @@ func Bill(ctx workflow.Context, req domain.CreateBill) (domain.Bill, error) {
 
 	if bill.State != domain.StateClosed {
 		if _, err := bill.Close(workflow.Now(ctx)); err != nil {
-			return domain.Bill{}, temporal.NewNonRetryableApplicationError(err.Error(), "VALIDATION", err)
+			return domain.Bill{}, appError(err)
 		}
 	}
 
 	return bill.Summary(), nil
+}
+
+// appError wraps a domain error into a non-retryable Temporal application error
+// whose Type carries the domain classification code. The code, unlike the
+// wrapped Go error, survives the gRPC boundary so the API layer can map the
+// failure onto the correct HTTP status.
+func appError(err error) error {
+	return temporal.NewNonRetryableApplicationError(err.Error(), domain.ErrorCode(err), err)
 }
 
 func WorkflowID(billID string) string {

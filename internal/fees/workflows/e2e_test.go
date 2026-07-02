@@ -4,12 +4,14 @@ package workflows_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"gocanto.sh/bank/internal/fees/domain"
@@ -71,6 +73,73 @@ func TestTemporalE2E_CreateAddCloseBill(t *testing.T) {
 
 	if summary.State != domain.StateClosed {
 		t.Fatalf("state = %q, want closed", summary.State)
+	}
+}
+
+func TestTemporalE2E_RejectsAddToClosedBill(t *testing.T) {
+	ctx, c := startTemporal(t)
+
+	start := time.Now().UTC()
+	billReq := domain.CreateBill{BillID: "e2e-closed-bill", PeriodStart: start, PeriodEnd: start.Add(time.Hour)}
+	run, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
+		ID:        workflows.WorkflowID(billReq.BillID),
+		TaskQueue: workflows.DefaultTaskQueue,
+	}, workflows.WorkflowNameBill, billReq)
+
+	if err != nil {
+		t.Fatalf("execute workflow: %v", err)
+	}
+
+	closeUpdate, err := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   run.GetID(),
+		RunID:        run.GetRunID(),
+		UpdateName:   workflows.UpdateCloseBill,
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+
+	if err != nil {
+		t.Fatalf("close update: %v", err)
+	}
+
+	var summary domain.Bill
+
+	if err := closeUpdate.Get(ctx, &summary); err != nil {
+		t.Fatalf("close update result: %v", err)
+	}
+
+	amount, err := domain.NewMoney(500, "USD")
+
+	if err != nil {
+		t.Fatalf("new money: %v", err)
+	}
+
+	// Adding to the closed bill must be rejected, and the domain classification
+	// code must survive the RPC boundary on the ApplicationError type so the API
+	// layer can map it to the correct status rather than a generic 500.
+	addUpdate, addErr := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   run.GetID(),
+		RunID:        run.GetRunID(),
+		UpdateName:   workflows.UpdateAddLineItem,
+		Args:         []any{domain.AddLineItem{ID: "li-late", Description: "late fee", Amount: amount}},
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+
+	if addErr == nil {
+		addErr = addUpdate.Get(ctx, &summary)
+	}
+
+	if addErr == nil {
+		t.Fatal("expected add-to-closed to be rejected")
+	}
+
+	var appErr *temporal.ApplicationError
+
+	if !errors.As(addErr, &appErr) {
+		t.Fatalf("error type = %T, want *temporal.ApplicationError", addErr)
+	}
+
+	if appErr.Type() != domain.CodeBillClosed {
+		t.Fatalf("application error type = %q, want %q", appErr.Type(), domain.CodeBillClosed)
 	}
 }
 
