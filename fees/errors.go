@@ -6,7 +6,7 @@ import (
 	"encore.dev/beta/errs"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/temporal"
-	errorsx "gocanto.sh/bank/internal/errors"
+	"gocanto.sh/bank/internal/errorsx"
 	"gocanto.sh/bank/internal/fees/domain"
 )
 

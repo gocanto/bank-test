@@ -67,7 +67,7 @@ fees/                         # Encore service — HTTP transport / delivery lay
   errors.go                   # fees-specific error classification (domain → Fault)
 internal/
   bootstrap/                  # service wiring: open SQLite, dial Temporal, start worker
-  errors/                     # generic error → Encore code / HTTP status mapping (package errorsx)
+  errorsx/                    # generic error → Encore code / HTTP status mapping
   response/                   # generic Response[T] envelope
   database/                   # generic snapshot persistence glue (Persist / Stored)
   temporal/                   # generic Temporal workflow query helper
@@ -81,7 +81,7 @@ internal/
 
 Dependencies point inward: `domain` imports nothing from the rest of the tree, the
 `billstore` and `workflows` packages depend only on `domain`, and the generic
-`bootstrap`, `errors`, `response`, `database`, and `temporal` packages carry no
+`bootstrap`, `errorsx`, `response`, `database`, and `temporal` packages carry no
 bounded-context knowledge. The `fees` service package is a thin adapter that classifies
 its own errors and delegates wiring to `bootstrap`. The `internal/` prefix keeps every
 non-service package module-private, so nothing here can be imported from outside the
@@ -89,7 +89,7 @@ module.
 
 A second service (say `accounts`) would be added as another top-level Encore package
 with its own `internal/accounts/…` context, reusing `internal/bootstrap`,
-`internal/errors`, `internal/response`, `internal/database`, `internal/temporal`, and
+`internal/errorsx`, `internal/response`, `internal/database`, `internal/temporal`, and
 `internal/platform/…` unchanged.
 
 ## How It Works
