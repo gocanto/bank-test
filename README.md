@@ -4,12 +4,27 @@ Gocanto Bank Test is a small Go backend for managing bank fee bills. It exposes
 an HTTP API for creating bills, adding line items, closing bills, and reading the
 latest bill summary.
 
-The service is built with Encore, Temporal, and SQLite:
+The service is built with Encore, Temporal, and SQLite. Each one owns a
+distinct concern, which keeps the domain logic free of framework and transport
+details:
 
-- Encore exposes the local HTTP API and service runtime.
-- Temporal owns each bill's lifecycle and workflow state.
-- SQLite stores append-only bill snapshots for reads and recovery-friendly
-  summaries after workflow changes.
+- **Encore exposes the local HTTP API and service runtime.** The `//encore:api`
+  handlers in `fees/` are the whole delivery layer — Encore generates the
+  program entrypoint, routes requests, and injects the Temporal client and
+  SQLite store — so the handlers only translate HTTP calls into domain
+  operations and never carry business rules themselves.
+- **Temporal owns each bill's lifecycle and workflow state.** A bill is a
+  long-lived entity with update rules (open → closed) and a delayed close when
+  the billing period ends. Running that as a workflow makes the current state
+  durable and recoverable: the workflow is the source of truth, and the API
+  merely sends updates (`add line item`, `close`) and queries against it rather
+  than mutating state in place.
+- **SQLite stores append-only bill snapshots for reads and recovery-friendly
+  summaries after workflow changes.** After every successful workflow change the
+  API writes a snapshot, so reads can be served locally and still return a last
+  known bill even when Temporal is unreachable. Because the table is
+  append-only, it doubles as a history of observed states without extra
+  infrastructure or migrations.
 
 ## What It Does
 
@@ -24,6 +39,7 @@ bill is closed, new line items are rejected.
 Current domain rules:
 
 - bill IDs and line item IDs are required
+- line item descriptions are required
 - line item IDs must be unique per bill
 - amounts must be positive
 - supported currencies are `USD` and `GEL`
@@ -40,17 +56,10 @@ Encore and Temporal CLIs, and its Go version is resolved from
 
 ## Why This Shape
 
-Temporal is used because a bill has lifecycle state, update rules, and delayed
-close behavior. Keeping that state in a workflow makes create, update, query,
-and close operations explicit and recoverable.
-
-SQLite is used for pragmatic local persistence. The API writes a snapshot after
-successful workflow changes, then reads the latest snapshot when it can. The
-snapshot table is append-only, which keeps a history of observed bill states
-without adding more infrastructure.
-
-Docker keeps the local setup repeatable. You should not need to install Encore
-or Temporal directly on your machine to run the service.
+The roles of Encore, Temporal, and SQLite are covered above. Beyond those,
+Docker keeps the local setup repeatable: the Dockerized toolbox pins the Encore
+and Temporal CLIs and the Go version, so you should not need to install any of
+them directly on your machine to run the service.
 
 ## Project Layout
 
@@ -116,9 +125,17 @@ API responses are wrapped in a `data` object:
 }
 ```
 
-## Run
+## Examples
 
-Start Temporal:
+The examples below are split into two parts: running the **server** (the
+Temporal dev server plus the Encore API) and acting as a **consumer** (calling
+the API over HTTP).
+
+### Server
+
+The service has two long-running processes. Start each in its own terminal.
+
+**1. Start Temporal** (terminal 1):
 
 ```bash
 make temporal
@@ -127,7 +144,7 @@ make temporal
 Temporal listens on `localhost:7233`, and the Temporal UI is available at
 `http://localhost:8233`.
 
-In another terminal, start the Encore API:
+**2. Start the Encore API** (terminal 2):
 
 ```bash
 make run
@@ -138,9 +155,12 @@ The API listens on `http://localhost:4000`.
 Local SQLite state is stored at `storage/database/gocanto.sqlite3`. The
 directory is created automatically and ignored by git.
 
-## Use The API
+### Consumers
 
-Create a bill:
+With the server running, a consumer drives a bill through its lifecycle with the
+four endpoints below. Every response wraps the bill under a `data` object.
+
+**1. Create a bill** — starts the Temporal workflow and saves the first snapshot:
 
 ```bash
 curl -X POST http://localhost:4000/v1/bank/bills \
@@ -148,7 +168,7 @@ curl -X POST http://localhost:4000/v1/bank/bills \
   -d '{"bill_id":"bill-001","period_start":"2026-06-01T00:00:00Z","period_end":"2026-07-01T00:00:00Z"}'
 ```
 
-Add line items:
+**2. Add a line item** — allowed only while the bill is open:
 
 ```bash
 curl -X POST http://localhost:4000/v1/bank/bills/bill-001/line-items \
@@ -156,19 +176,19 @@ curl -X POST http://localhost:4000/v1/bank/bills/bill-001/line-items \
   -d '{"id":"li-001","description":"Card processing fee","amount":{"amount":1250,"currency":"USD"}}'
 ```
 
-Close the bill:
+**3. Close the bill** — after this, new line items are rejected:
 
 ```bash
 curl -X POST http://localhost:4000/v1/bank/bills/bill-001/close
 ```
 
-Read a summary:
+**4. Read a summary** — returns the current bill state:
 
 ```bash
 curl http://localhost:4000/v1/bank/bills/bill-001
 ```
 
-Responses include the bill under `data`. A closed bill looks like this shape:
+A closed bill returns this shape:
 
 ```json
 {
